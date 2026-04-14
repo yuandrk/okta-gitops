@@ -1,0 +1,21 @@
+# Terraform state — contains plaintext secrets and resource IDs
+terraform.tfstate
+terraform.tfstate.backup
+
+# Real variable values — never commit credentials
+terraform.tfvars
+*.auto.tfvars
+
+# Terraform working directory — downloaded providers and modules
+.terraform/
+.terraform.lock.hcl   # optional: commit this if you want reproducible provider versions across machines
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Override files (local experiments, not team-shared)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
