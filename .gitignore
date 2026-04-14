@@ -8,7 +8,7 @@ terraform.tfvars
 
 # Terraform working directory — downloaded providers and modules
 .terraform/
-.terraform.lock.hcl   # optional: commit this if you want reproducible provider versions across machines
+# .terraform.lock.hcl is intentionally NOT ignored — commit it to pin provider versions
 
 # Crash logs
 crash.log
