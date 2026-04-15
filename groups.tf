@@ -1,11 +1,7 @@
 # Admin Console equivalent: Directory → Groups → Add Group
-resource "okta_group" "engineering" {
-  name        = "Engineering"
-  description = "All engineering staff"
-}
-
-# Admin Console equivalent: Directory → Groups → Add Group
-resource "okta_group" "it_admins" {
-  name        = "IT-Admins"
-  description = "IT administrators with elevated access"
+# Okta API: POST /api/v1/groups
+resource "okta_group" "groups" {
+  for_each    = { for g in local.groups_list : g.name => g }
+  name        = each.value.name
+  description = each.value.description
 }

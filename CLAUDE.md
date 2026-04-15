@@ -66,15 +66,56 @@ Single flat directory (no modules yet). Resources are split by concern:
 | `provider.tf` | Provider version lock and authentication config |
 | `variables.tf` | All input variables |
 | `outputs.tf` | Output values (currently empty) |
-| `groups.tf` | `okta_group` resources |
-| `users.tf` | `okta_user` resources |
-| `memberships.tf` | `okta_group_memberships` — links users to groups |
+| `data.tf` | SOPS data source + shared locals (groups, users, memberships map) |
+| `users.yaml` | SOPS-encrypted source of truth for all groups, users, and memberships |
+| `groups.tf` | `okta_group` resources (data-driven via `for_each`) |
+| `users.tf` | `okta_user` resources (data-driven via `for_each`) |
+| `memberships.tf` | `okta_group_memberships` — links users to groups (data-driven) |
 
-Resource references (e.g. `okta_group.engineering.id`) create implicit dependencies; Terraform resolves the creation order automatically.
+All Okta resources are keyed by their natural identifier: group `name` and user `login`. Terraform resolves creation order automatically via implicit dependencies.
+
+## SOPS — encrypted user data
+
+Users and groups are defined in `users.yaml`, which is encrypted with [SOPS](https://github.com/getsops/sops) using an **age** key. The encrypted file is safe to commit.
+
+### Local setup
+
+```bash
+# Install tools (if not already present)
+brew install age sops
+
+# Generate an age key (stored at the SOPS default location)
+age-keygen -o ~/.config/sops/age/keys.txt
+# Copy the printed public key into .sops.yaml → creation_rules → age
+```
+
+The `carlpett/sops` Terraform provider reads the key automatically from `~/.config/sops/age/keys.txt`.
+
+### Editing users.yaml
+
+```bash
+# Opens in $EDITOR, re-encrypts on save
+sops users.yaml
+
+# Or decrypt to stdout (read-only inspection)
+sops --decrypt users.yaml
+```
+
+### Adding a user
+
+1. `sops users.yaml` — edit the file
+2. Add a new entry under `users:` with `first_name`, `last_name`, `login`, `email`, `status`, and `groups`
+3. Save and close — SOPS re-encrypts automatically
+4. Commit, open a PR — Terraform will plan the new user on next run
+
+### CI/CD
+
+Set the `SOPS_AGE_KEY` environment secret to the **private key contents** (everything in `keys.txt`).
+The provider picks it up without needing the key file on disk.
 
 ## State & lock file
 
-- State is stored **locally** (`terraform.tfstate`) — no remote backend configured. This file is gitignored and contains sensitive data.
+- State is stored in **S3** (`terraform-state-homelab-yuandrk`, eu-west-2). Init with `terraform init -backend-config=backend.hcl`.
 - `.terraform.lock.hcl` **should be committed** — it pins provider versions so all collaborators use the same binary.
 
 ## Plugins active in this project
