@@ -49,6 +49,19 @@ terraform {
 
 ---
 
+## Repo restructure: modules + environments ✓
+
+Reorganised from flat root into reusable modules and environment-scoped Terraform roots.
+
+- [x] `modules/identity/` — users, groups, memberships (driven by YAML input variables)
+- [x] `modules/policies/`, `modules/apps/` — stubs for future resources
+- [x] `environments/dev/` — full environment root with backend, SOPS data.yaml, module calls
+- [x] `environments/prod/` — placeholder stub
+- [x] State migrated from `okta/terraform.tfstate` → `dev/terraform.tfstate` with `module.identity.` prefix (no destroy/recreate)
+- [x] CLAUDE.md updated
+
+---
+
 ## GitOps CI/CD with GitHub Actions
 
 Add proper branch protection and automated plan/apply pipeline.

@@ -12,5 +12,5 @@ variable "base_url" {
 variable "api_token" {
   description = "Okta API token — generate in Admin Console → Security → API → Tokens"
   type        = string
-  sensitive   = true # prevents the value from appearing in plan/apply output and state diffs
+  sensitive   = true
 }
