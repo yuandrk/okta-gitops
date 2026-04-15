@@ -128,6 +128,21 @@ Set the `SOPS_AGE_KEY` environment secret to the **private key contents** (every
   - `prod/terraform.tfstate` (when provisioned)
 - Init each environment with `terraform init -backend-config=backend.hcl`
 - `.terraform.lock.hcl` **should be committed** — it pins provider versions per environment
+- `backend.hcl` uses `use_lockfile = true` (S3-native locking) — requires Terraform ≥ 1.10; CI workflows pin `~1.10`
+
+## CI/CD
+
+- `.github/workflows/plan.yml` — PR trigger: fmt, init, validate, plan; posts plan as PR comment
+- `.github/workflows/apply.yml` — push to `main`: gated by GitHub Environment `dev` (manual approval), then `apply -auto-approve`
+- AWS auth via **OIDC** — IAM role `github-okta-gitops` (account `756755582140`), no stored AWS keys
+- Secrets: `TF_VAR_API_TOKEN`, `SOPS_AGE_KEY` · Variables: `TF_VAR_ORG_NAME`, `AWS_ROLE_ARN`
+
+### IAM role trust — OIDC subject patterns
+
+`github-okta-gitops` trust policy must include all three:
+- `repo:yuandrk/okta-gitops:ref:refs/heads/main` — push to main
+- `repo:yuandrk/okta-gitops:pull_request` — PR runs (plan.yml)
+- `repo:yuandrk/okta-gitops:environment:*` — environment-gated runs (apply.yml uses `environment: dev`)
 
 ## Plugins active in this project
 
@@ -139,3 +154,4 @@ Set the `SOPS_AGE_KEY` environment secret to the **private key contents** (every
 - `okta_group_memberships` is **authoritative** — it owns the full member list. Members added manually in the Admin Console will be removed on next apply.
 - User `status = "STAGED"` means the account exists but is inactive (no email sent, no login possible). Change to `"ACTIVE"` to trigger activation.
 - `login` on `okta_user` is the immutable unique key — changing it forces destroy + recreate.
+- SOPS-decrypted `var.users`/`var.groups` are sensitive — wrap `for_each` iterables with `nonsensitive()` (see `modules/identity/main.tf`). Keys like `login`/`name` are not real secrets.
