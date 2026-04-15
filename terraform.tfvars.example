@@ -1,6 +1,0 @@
-# Copy this file to terraform.tfvars and fill in your values.
-# terraform.tfvars is gitignored — never commit real credentials.
-
-org_name  = "your-org-subdomain"   # e.g. "integrator-7752059"
-base_url  = "okta.com"
-api_token = "your-api-token-here"  # or set TF_VAR_okta_api_token env var instead
