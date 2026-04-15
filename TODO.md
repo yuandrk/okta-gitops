@@ -1,19 +1,19 @@
 # TODO
 
-## User management via YAML + SOPS
+## User management via YAML + SOPS ✓
 
 Replace hardcoded/tfvars user definitions with an encrypted YAML file committed to the repo.
 
 **Why:** GitOps-friendly — user additions/removals are tracked as git diffs, reviewable via PRs, safe to store in a public repo.
 
 **Plan:**
-- [ ] Add `users.yaml` with user + group membership data
-- [ ] Encrypt `users.yaml` with SOPS (age or AWS KMS key)
-- [ ] Add `terraform-provider-sops` to `provider.tf`
-- [ ] Refactor `users.tf` to use `yamldecode(sops_decrypt_file("users.yaml"))` with `for_each`
-- [ ] Refactor `groups.tf` and `memberships.tf` to be data-driven from the same YAML
-- [ ] Update CI/CD to inject the SOPS decryption key (age private key or KMS access)
-- [ ] Document SOPS setup in CLAUDE.md
+- [x] Add `users.yaml` with user + group membership data
+- [x] Encrypt `users.yaml` with SOPS (age key)
+- [x] Add `terraform-provider-sops` to `provider.tf`
+- [x] Refactor `users.tf` to use `for_each` driven by YAML
+- [x] Refactor `groups.tf` and `memberships.tf` to be data-driven from the same YAML
+- [ ] Update CI/CD to inject the SOPS decryption key (`SOPS_AGE_KEY` secret)
+- [x] Document SOPS setup in CLAUDE.md
 
 **References:**
 - [terraform-provider-sops](https://registry.terraform.io/providers/carlpett/sops/latest/docs)
@@ -21,19 +21,18 @@ Replace hardcoded/tfvars user definitions with an encrypted YAML file committed 
 
 ---
 
-## Remote state in S3
+## Remote state in S3 ✓
 
 Move Terraform state from local file to S3 with DynamoDB locking.
 
 **Why:** Local state breaks in CI/CD and on teams — S3 backend gives shared, versioned state with locking so concurrent applies don't corrupt it.
 
 **Plan:**
-- [ ] Create S3 bucket (versioning enabled, SSE-S3 or KMS encryption)
-- [ ] Create DynamoDB table for state locking (`LockID` as partition key)
-- [ ] Add `backend "s3"` block to `provider.tf`
-- [ ] Run `terraform init -migrate-state` to move existing local state to S3
+- [x] Create S3 bucket (versioning enabled, SSE-S3 or KMS encryption)
+- [x] Add `backend "s3"` block to `backend.tf` (native S3 lock file — no DynamoDB needed)
+- [x] Config split into `backend.hcl` (keeps config out of version-controlled `backend.tf`)
+- [x] Run `terraform init -migrate-state` to move existing local state to S3
 - [ ] Add `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or OIDC role) to GitHub Actions secrets
-- [ ] Gitignore `terraform.tfstate` is already in place — verify nothing leaks after migration
 
 **Backend config:**
 ```hcl

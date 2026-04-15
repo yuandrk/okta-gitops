@@ -3,11 +3,11 @@
 #
 # "STAGED" means the user exists in Okta but has never been activated —
 # no welcome email is sent, no password is set. Safe for testing.
-resource "okta_user" "test_engineer" {
-  first_name = "Test"
-  last_name  = "Engineer"
-  login      = "test.engineer@example.com" # must be unique in the org; acts as the username
-  email      = "test.engineer@example.com" # in Okta, login and email are often the same
-
-  status = "STAGED" # other values: ACTIVE, DEPROVISIONED, SUSPENDED
+resource "okta_user" "users" {
+  for_each   = { for u in local.users_list : u.login => u }
+  first_name = each.value.first_name
+  last_name  = each.value.last_name
+  login      = each.value.login # must be unique in the org; acts as the username
+  email      = each.value.email # in Okta, login and email are often the same
+  status     = each.value.status # STAGED, ACTIVE, DEPROVISIONED, SUSPENDED
 }

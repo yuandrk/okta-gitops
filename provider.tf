@@ -4,6 +4,10 @@ terraform {
       source  = "okta/okta"
       version = "~> 6.0"
     }
+    sops = {
+      source  = "carlpett/sops"
+      version = "~> 1.0"
+    }
   }
   required_version = ">= 1.6.0"
 }
