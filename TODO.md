@@ -12,7 +12,7 @@ Replace hardcoded/tfvars user definitions with an encrypted YAML file committed 
 - [x] Add `terraform-provider-sops` to `provider.tf`
 - [x] Refactor `users.tf` to use `for_each` driven by YAML
 - [x] Refactor `groups.tf` and `memberships.tf` to be data-driven from the same YAML
-- [ ] Update CI/CD to inject the SOPS decryption key (`SOPS_AGE_KEY` secret)
+- [x] Update CI/CD to inject the SOPS decryption key (`SOPS_AGE_KEY` secret)
 - [x] Document SOPS setup in CLAUDE.md
 
 **References:**
@@ -32,19 +32,15 @@ Move Terraform state from local file to S3 with DynamoDB locking.
 - [x] Add `backend "s3"` block to `backend.tf` (native S3 lock file — no DynamoDB needed)
 - [x] Config split into `backend.hcl` (keeps config out of version-controlled `backend.tf`)
 - [x] Run `terraform init -migrate-state` to move existing local state to S3
-- [ ] Add `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (or OIDC role) to GitHub Actions secrets
+- [x] OIDC role `github-okta-gitops` configured for GitHub Actions (no static AWS keys)
 
-**Backend config:**
+**Backend config** (`environments/dev/backend.hcl`):
 ```hcl
-terraform {
-  backend "s3" {
-    bucket         = "okta-tf-state"
-    key            = "okta/terraform.tfstate"
-    region         = "eu-west-1"
-    dynamodb_table = "okta-tf-state-lock"
-    encrypt        = true
-  }
-}
+bucket       = "terraform-state-homelab-yuandrk"
+key          = "dev/terraform.tfstate"
+region       = "eu-west-2"
+encrypt      = true
+use_lockfile = true  # S3-native locking (Terraform ≥ 1.10), no DynamoDB
 ```
 
 ---
@@ -71,5 +67,6 @@ Add proper branch protection and automated plan/apply pipeline.
 **Plan:**
 - [x] Create `.github/workflows/plan.yml` — fmt-check, validate, plan → PR comment
 - [x] Create `.github/workflows/apply.yml` — apply on merge to main, gated by GitHub Environment approval
-- [ ] Configure GitHub repo: secrets, variables, "dev" environment, branch protection on main
-- [ ] Set up AWS IAM OIDC provider + `github-okta-gitops` role (see workflow header comments)
+- [x] Configure GitHub repo secrets (`TF_VAR_API_TOKEN`, `SOPS_AGE_KEY`), variables (`TF_VAR_ORG_NAME`, `AWS_ROLE_ARN`), and `dev` environment with required reviewer
+- [x] Set up AWS IAM OIDC provider + `github-okta-gitops` role with trust for `ref:refs/heads/main`, `pull_request`, and `environment:*`
+- [x] Enable branch protection on `main` (require PR + `plan / dev` status check)
