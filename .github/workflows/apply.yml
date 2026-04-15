@@ -1,0 +1,61 @@
+name: Terraform Apply
+
+# Runs on every merge to main that touches Terraform code.
+# Gated by a GitHub Environment with required reviewers — someone must approve
+# in the Actions UI before terraform apply executes.
+#
+# Required GitHub repository setup (one-time):
+#   Environment: "dev" — Settings → Environments → New environment → add yourself as reviewer
+#   Secrets : TF_VAR_API_TOKEN  — Okta API token
+#             SOPS_AGE_KEY      — contents of ~/.config/sops/age/keys.txt
+#   Variables: TF_VAR_ORG_NAME  — e.g. "integrator-7752059"
+#              AWS_ROLE_ARN     — IAM role ARN for OIDC (see docs/iam-oidc.md)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "environments/**"
+      - "modules/**"
+      - ".sops.yaml"
+
+permissions:
+  id-token: write # required for OIDC AWS auth
+  contents: read
+
+jobs:
+  apply:
+    name: apply / ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }} # triggers manual approval gate
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev]
+
+    defaults:
+      run:
+        working-directory: environments/${{ matrix.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-west-2
+
+      - name: Terraform init
+        run: terraform init -backend-config=backend.hcl
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve
+        env:
+          TF_VAR_org_name: ${{ vars.TF_VAR_ORG_NAME }}
+          TF_VAR_api_token: ${{ secrets.TF_VAR_API_TOKEN }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}

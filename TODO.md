@@ -62,15 +62,14 @@ Reorganised from flat root into reusable modules and environment-scoped Terrafor
 
 ---
 
-## GitOps CI/CD with GitHub Actions
+## GitOps CI/CD with GitHub Actions ✓
 
 Add proper branch protection and automated plan/apply pipeline.
 
 **Why:** Demonstrates real GitOps skills — no manual `terraform apply`, all changes go through PR review with visible plan output.
 
 **Plan:**
-- [ ] Create `.github/workflows/plan.yml` — runs on PR: `fmt -check`, `validate`, `plan` (post output as PR comment)
-- [ ] Create `.github/workflows/apply.yml` — runs on merge to `main`: `apply -auto-approve`
-- [ ] Add required GitHub Actions secrets: `TF_VAR_api_token`, `TF_VAR_org_name`
-- [ ] Enable branch protection on `main` (no direct push, require PR + CI pass)
-- [ ] First PR should be `feature/ci-github-actions` → merge via the new pipeline itself
+- [x] Create `.github/workflows/plan.yml` — fmt-check, validate, plan → PR comment
+- [x] Create `.github/workflows/apply.yml` — apply on merge to main, gated by GitHub Environment approval
+- [ ] Configure GitHub repo: secrets, variables, "dev" environment, branch protection on main
+- [ ] Set up AWS IAM OIDC provider + `github-okta-gitops` role (see workflow header comments)

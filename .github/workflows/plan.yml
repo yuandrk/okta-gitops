@@ -1,0 +1,94 @@
+name: Terraform Plan
+
+# Runs on every PR that touches Terraform code.
+# Posts a plan summary as a PR comment so reviewers can see what will change.
+#
+# Required GitHub repository setup (one-time):
+#   Secrets : TF_VAR_API_TOKEN  — Okta API token
+#             SOPS_AGE_KEY      — contents of ~/.config/sops/age/keys.txt
+#   Variables: TF_VAR_ORG_NAME  — e.g. "integrator-7752059"
+#              AWS_ROLE_ARN     — IAM role ARN for OIDC (see docs/iam-oidc.md)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "environments/**"
+      - "modules/**"
+      - ".sops.yaml"
+
+permissions:
+  id-token: write      # required for OIDC AWS auth
+  contents: read
+  pull-requests: write # required to post PR comment
+
+jobs:
+  plan:
+    name: plan / ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev]
+
+    defaults:
+      run:
+        working-directory: environments/${{ matrix.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-west-2
+
+      - name: Terraform fmt check
+        id: fmt
+        run: terraform fmt -check -recursive ../../
+        continue-on-error: true
+
+      - name: Terraform init
+        id: init
+        run: terraform init -backend-config=backend.hcl
+
+      - name: Terraform validate
+        id: validate
+        run: terraform validate
+
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -no-color
+        env:
+          TF_VAR_org_name: ${{ vars.TF_VAR_ORG_NAME }}
+          TF_VAR_api_token: ${{ secrets.TF_VAR_API_TOKEN }}
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        continue-on-error: true
+
+      - name: Post plan comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              `#### Fmt 🖌 \`${{ steps.fmt.outcome }}\``,
+              `#### Init ⚙️ \`${{ steps.init.outcome }}\``,
+              `#### Validate 🤖 \`${{ steps.validate.outcome }}\``,
+              `#### Plan 📖 \`${{ steps.plan.outcome }}\` — \`${{ matrix.environment }}\``,
+              `<details><summary>Show Plan</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n</details>`,
+              `*triggered by @${{ github.actor }}*`,
+            ].join('\n\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
