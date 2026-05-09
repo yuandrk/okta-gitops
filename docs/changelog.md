@@ -1,4 +1,6 @@
-# TODO
+# Changelog
+
+History of major changes to this repo, in roughly the order they happened. Earlier items use TODO-style checkboxes from when they were being planned; newer items are written as completed-fact summaries.
 
 ## User management via YAML + SOPS ✓
 
@@ -70,3 +72,32 @@ Add proper branch protection and automated plan/apply pipeline.
 - [x] Configure GitHub repo secrets (`TF_VAR_API_TOKEN`, `SOPS_AGE_KEY`), variables (`TF_VAR_ORG_NAME`, `AWS_ROLE_ARN`), and `dev` environment with required reviewer
 - [x] Set up AWS IAM OIDC provider + `github-okta-gitops` role with trust for `ref:refs/heads/main`, `pull_request`, and `environment:*`
 - [x] Enable branch protection on `main` (require PR + `plan / dev` status check)
+
+---
+
+## Promote prod, demote dev to showcase ✓
+
+`environments/prod/` became the only active env. State object moved in S3 from `dev/terraform.tfstate` → `prod/terraform.tfstate`. Workflows retargeted to `prod`. `environments/dev/` kept as a read-only documentation copy with a README warning against running Terraform there. Branch protection required check renamed `plan / dev` → `plan / prod`. GitHub Environment renamed accordingly.
+
+---
+
+## Replace SOPS users/memberships with group rules ✓
+
+Pivoted users out of Terraform entirely.
+
+- Removed `okta_user` and `okta_group_memberships` resources from `modules/identity/`
+- Added `okta_group_rule` driven by Okta Expression Language (`user.userType`, `user.division`)
+- Dropped the SOPS provider, `.sops.yaml`, `data.yaml`, and the `SOPS_AGE_KEY` secret
+- Replaced encrypted `data.yaml` with plain `groups.yaml` (group names + rule expressions are not secrets)
+- Users now created in the Admin Console, sorted into groups by rules — see [source-of-truth.md](source-of-truth.md)
+
+---
+
+## Documentation site ✓
+
+Moved long-form docs out of `README.md` and `CLAUDE.md` into `docs/`:
+
+- `README.md` rewritten as a short entry point with links to `docs/`
+- `docs/architecture.md`, `docs/source-of-truth.md`, `docs/runbook.md`, `docs/ci-cd.md`, `docs/state-backend.md`
+- `TODO.md` → `docs/changelog.md` (this file)
+- `CLAUDE.md` retained as the AI-facing terse reference
