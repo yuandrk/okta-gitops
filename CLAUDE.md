@@ -22,13 +22,6 @@ Variable names: `org_name`, `base_url`, `api_token` (declared in each environmen
 ## First-time setup
 
 ```bash
-# Install SOPS and age (if not already present)
-brew install age sops
-
-# Generate an age key (one-time, stored at SOPS default location)
-age-keygen -o ~/.config/sops/age/keys.txt
-# Copy the printed public key into .sops.yaml → creation_rules → age
-
 # Set up credentials for the prod environment (the active one)
 cp environments/prod/terraform.tfvars.example environments/prod/terraform.tfvars
 # Edit environments/prod/terraform.tfvars with your Okta API token
@@ -51,13 +44,13 @@ cd environments/prod
 terraform init -backend-config=backend.hcl
 
 # Preview changes — always run before apply
-SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt terraform plan
+terraform plan
 
 # Apply (confirm with user first — never apply without showing plan)
-SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt terraform apply
+terraform apply
 
 # Tear down all resources in this environment
-SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt terraform destroy
+terraform destroy
 
 # Format all .tf files in place (run from repo root)
 terraform fmt -recursive
@@ -79,53 +72,48 @@ terraform state list
 ```
 okta-gitops/
 ├── modules/
-│   ├── identity/   # users, groups, memberships (okta_group, okta_user, okta_group_memberships)
+│   ├── identity/   # groups + group rules (okta_group, okta_group_rule)
 │   ├── policies/   # scaffolded (no resources yet) — sign-on, password, MFA policies
 │   └── apps/       # scaffolded (no resources yet) — SAML/OIDC app integrations
-├── environments/
-│   ├── prod/       # Active Terraform root: providers, backend, module calls, data.yaml
-│   └── dev/        # Read-only showcase — same layout as prod, not wired to CI or live state
-└── .sops.yaml      # SOPS age public key (repo root — SOPS searches up the tree)
+└── environments/
+    ├── prod/       # Active Terraform root: providers, backend, module calls, groups.yaml
+    └── dev/        # Read-only showcase — same layout as prod, not wired to CI or live state
 ```
 
-**`environments/prod/` is the only active environment.** `environments/dev/` is kept as a documentation-grade copy showing the same wiring (provider, SOPS data source, module call) — do not run Terraform against it.
+**`environments/prod/` is the only active environment.** `environments/dev/` is kept as a documentation-grade copy showing the same wiring (provider, module call) — do not run Terraform against it.
 
 Each `environments/<env>/` directory is an independent Terraform root:
 
 | File | Purpose |
-|---|---|
-| `main.tf` | Provider config, backend block, SOPS data source, module calls |
+| --- | --- |
+| `main.tf` | Provider config, backend block, module calls |
 | `variables.tf` | Input variables (org_name, base_url, api_token) |
 | `backend.hcl` | S3 backend config (not committed to TF config — passed via `-backend-config`) |
-| `data.yaml` | SOPS-encrypted source of truth for groups, users, and memberships |
+| `groups.yaml` | Plain-YAML list of groups + Okta Expression Language rules |
 | `terraform.tfvars` | Actual credentials (gitignored — copy from `.example`) |
 
-Modules accept structured data (lists of groups/users) from the environment and manage the Okta resources. Modules do **not** configure providers — they inherit from the calling environment. The identity module exposes group and user IDs via `outputs.tf` for use by future modules.
+Modules accept structured data (list of groups) from the environment and manage the Okta resources. Modules do **not** configure providers — they inherit from the calling environment. The identity module exposes group and group-rule IDs via `outputs.tf` for use by future modules.
 
-## SOPS — encrypted user data
+## Source of truth — users live outside Terraform
 
-Users and groups are defined in `environments/<env>/data.yaml`, encrypted with [SOPS](https://github.com/getsops/sops) using an **age** key.
+Users are **not** managed by Terraform. They are created in the Okta Admin Console (or, in a real org, pushed in via SCIM/HRIS or directory integration). Terraform owns only:
 
-### Editing data.yaml
+- **Groups** (`okta_group`) — stable abstractions of access boundaries
+- **Group rules** (`okta_group_rule`) — auto-assign users to groups based on profile attributes via Okta Expression Language
 
-```bash
-# Opens in $EDITOR, re-encrypts on save
-sops environments/prod/data.yaml
+### Adding a user (manual)
 
-# Or decrypt to stdout (read-only inspection)
-sops --decrypt environments/prod/data.yaml
-```
+1. Admin Console → Directory → People → Add Person
+2. Fill in profile, **make sure to set `Division` and `User type`** — these drive group rule matching
+3. Save → group rules evaluate within seconds and assign the user to matching groups
 
-### Adding a user
+### Adding/changing a group or rule
 
-1. `sops environments/prod/data.yaml` — opens in editor
-2. Add a new entry under `users:` with `first_name`, `last_name`, `login`, `email`, `status`, and `groups`
-3. Save and close — SOPS re-encrypts automatically
-4. Commit, open a PR — Terraform will plan the new user on next run
+1. Edit `environments/prod/groups.yaml` — add a new group entry with optional `rule` (Okta Expression Language)
+2. `terraform plan` → review
+3. `terraform apply` (or merge to main and let CI apply)
 
-### CI/CD
-
-Set the `SOPS_AGE_KEY` environment secret to the **private key contents** (everything in `~/.config/sops/age/keys.txt`). The provider picks it up without needing the key file on disk.
+Rule expression reference: <https://developer.okta.com/docs/reference/okta-expression-language/>. Common attributes: `user.userType`, `user.division`, `user.department`, `user.title`, `user.organization`.
 
 ## State & lock file
 
@@ -136,12 +124,12 @@ Set the `SOPS_AGE_KEY` environment secret to the **private key contents** (every
 - `backend.hcl` uses `use_lockfile = true` (S3-native locking) — requires Terraform ≥ 1.10; CI workflows pin `~1.10`
 - Local Terraform floor is `>= 1.6.0` (`main.tf`), but S3 locking requires `>= 1.10` — use 1.10+ locally too
 
-## CI/CD
+## CI/CD workflows
 
 - `.github/workflows/plan.yml` — PR trigger: fmt, init, validate, plan; posts plan as PR comment
 - `.github/workflows/apply.yml` — push to `main`: gated by GitHub Environment `prod` (manual approval), then `apply -auto-approve`
 - AWS auth via **OIDC** — IAM role `github-okta-gitops` (account `756755582140`), no stored AWS keys
-- Secrets: `TF_VAR_API_TOKEN`, `SOPS_AGE_KEY` · Variables: `TF_VAR_ORG_NAME`, `AWS_ROLE_ARN`
+- Secrets: `TF_VAR_API_TOKEN` · Variables: `TF_VAR_ORG_NAME`, `AWS_ROLE_ARN`
 
 ### IAM role trust — OIDC subject patterns
 
@@ -157,7 +145,7 @@ Set the `SOPS_AGE_KEY` environment secret to the **private key contents** (every
 
 ## Key Okta concepts mapped to resources
 
-- `okta_group_memberships` is **authoritative** — it owns the full member list. Members added manually in the Admin Console will be removed on next apply.
-- User `status = "STAGED"` means the account exists but is inactive (no email sent, no login possible). Change to `"ACTIVE"` to trigger activation.
-- `login` on `okta_user` is the immutable unique key — changing it forces destroy + recreate.
-- SOPS-decrypted `var.users`/`var.groups` are sensitive — wrap `for_each` iterables with `nonsensitive()` (see `modules/identity/main.tf`). Keys like `login`/`name` are not real secrets.
+- `okta_group_rule` is **declarative** — it watches user profile attributes and adds matching users to its target group. Manual group memberships added via the Admin Console for the same user are not removed by the rule, but rule-assigned memberships cannot be removed manually (the rule re-adds them).
+- A rule must be **deactivated** before its expression can be edited; the provider handles that transition automatically (it reports `status: ACTIVE → INACTIVE → ACTIVE` in the plan).
+- Group rules evaluate on user creation and on profile change. They do **not** evaluate retroactively unless the rule is re-activated.
+- Profile attributes used in expressions (`user.userType`, `user.division`, etc.) must exist on the Okta user schema. The built-in Default User Type already includes the most common ones.

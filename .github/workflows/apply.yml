@@ -7,7 +7,6 @@ name: Terraform Apply
 # Required GitHub repository setup (one-time):
 #   Environment: "prod" — Settings → Environments → New environment → add yourself as reviewer
 #   Secrets : TF_VAR_API_TOKEN  — Okta API token
-#             SOPS_AGE_KEY      — contents of ~/.config/sops/age/keys.txt
 #   Variables: TF_VAR_ORG_NAME  — e.g. "integrator-7752059"
 #              AWS_ROLE_ARN     — IAM role ARN for OIDC (see docs/iam-oidc.md)
 
@@ -17,7 +16,6 @@ on:
     paths:
       - "environments/prod/**"
       - "modules/**"
-      - ".sops.yaml"
 
 permissions:
   id-token: write # required for OIDC AWS auth
@@ -58,4 +56,3 @@ jobs:
         env:
           TF_VAR_org_name: ${{ vars.TF_VAR_ORG_NAME }}
           TF_VAR_api_token: ${{ secrets.TF_VAR_API_TOKEN }}
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}

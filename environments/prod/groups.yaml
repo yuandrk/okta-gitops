@@ -1,0 +1,13 @@
+# Groups managed by Terraform. Users are NOT defined here — they live in Okta
+# (created via Admin Console or upstream SCIM/HRIS source). Group rules below
+# use Okta Expression Language to auto-assign users by profile attributes.
+#
+# Reference: https://developer.okta.com/docs/reference/okta-expression-language/
+groups:
+  - name: Engineering
+    description: All engineering staff
+    rule: 'user.division == "Engineering"'
+
+  - name: IT-Admins
+    description: IT administrators with elevated access
+    rule: 'user.userType == "Employee" and user.division == "IT"'

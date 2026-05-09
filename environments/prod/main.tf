@@ -4,10 +4,6 @@ terraform {
       source  = "okta/okta"
       version = "~> 6.0"
     }
-    sops = {
-      source  = "carlpett/sops"
-      version = "~> 1.0"
-    }
   }
   required_version = ">= 1.6.0"
 
@@ -22,18 +18,14 @@ provider "okta" {
   api_token = var.api_token
 }
 
-# Reads data.yaml (SOPS-encrypted with age) and decrypts it at plan/apply time.
-# The sops provider uses the age key from SOPS_AGE_KEY_FILE or ~/.config/sops/age/keys.txt.
-data "sops_file" "org" {
-  source_file = "data.yaml"
-}
-
+# groups.yaml is plain text — group names and rule expressions are not secrets.
+# Users are the source of truth and are created in the Admin Console (or via
+# SCIM/HRIS). Group rules sort them into groups based on profile attributes.
 locals {
-  org = yamldecode(data.sops_file.org.raw)
+  org = yamldecode(file("${path.module}/groups.yaml"))
 }
 
 module "identity" {
   source = "../../modules/identity"
   groups = local.org.groups
-  users  = local.org.users
 }
