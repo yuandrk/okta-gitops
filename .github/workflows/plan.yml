@@ -13,7 +13,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "environments/**"
+      - "environments/prod/**"
       - "modules/**"
       - ".sops.yaml"
 
@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [dev]
+        environment: [prod]
 
     defaults:
       run:

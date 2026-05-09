@@ -5,7 +5,7 @@ name: Terraform Apply
 # in the Actions UI before terraform apply executes.
 #
 # Required GitHub repository setup (one-time):
-#   Environment: "dev" — Settings → Environments → New environment → add yourself as reviewer
+#   Environment: "prod" — Settings → Environments → New environment → add yourself as reviewer
 #   Secrets : TF_VAR_API_TOKEN  — Okta API token
 #             SOPS_AGE_KEY      — contents of ~/.config/sops/age/keys.txt
 #   Variables: TF_VAR_ORG_NAME  — e.g. "integrator-7752059"
@@ -15,7 +15,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "environments/**"
+      - "environments/prod/**"
       - "modules/**"
       - ".sops.yaml"
 
@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [dev]
+        environment: [prod]
 
     defaults:
       run:
