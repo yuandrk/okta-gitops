@@ -1,0 +1,23 @@
+# Okta app integrations managed by Terraform. Each entry produces an OIDC app, its
+# sign-on policy + rule, and group assignments. Consumed by modules/apps.
+#
+# Headlamp is the homelab Kubernetes dashboard: users sign in through Okta (OIDC),
+# the `groups` claim carries their Okta group membership, and the k3s cluster maps
+# those groups to RBAC roles. The `groups` list below controls who may use the app.
+apps:
+  - name: Headlamp
+    type: web
+    grant_types: ["authorization_code", "refresh_token"]
+    response_types: ["code"]
+    redirect_uris: ["https://headlamp.yuandrk.net/oidc-callback"]
+    post_logout_redirect_uris: ["https://headlamp.yuandrk.net"]
+    refresh_token_leeway: 30
+    consent_method: TRUSTED
+    issuer_mode: ORG_URL
+    hide_ios: true
+    hide_web: true
+    groups: ["homelab-admins"] # who may sign in to Headlamp
+    signon_policy:
+      name: "Headlamp Sign-On Policy"
+      description: "Managed by Terraform — 1FA password only"
+      rule_name: "Allow password"

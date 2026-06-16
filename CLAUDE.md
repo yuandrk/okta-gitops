@@ -69,28 +69,31 @@ Single Terraform root at the repo root — no dev/prod split.
 
 ```
 okta-gitops/
-├── main.tf            # provider config, backend block, module call
+├── main.tf            # provider, backend, locals, module.identity + module.apps
 ├── variables.tf       # input variables (org_name, base_url, api_token)
+├── outputs.tf         # oidc_client_ids, oidc_client_secrets (re-exported from module.apps)
 ├── backend.hcl        # S3 backend config (passed via -backend-config)
-├── groups.yaml        # plain-YAML list of groups + Okta Expression Language rules
+├── groups.yaml        # plain-YAML groups + Okta Expression Language rules
+├── apps.yaml          # plain-YAML OIDC app integrations (Headlamp)
 ├── terraform.tfvars   # actual credentials (gitignored — copy from .example)
 └── modules/
-    └── identity/      # groups + group rules (okta_group, okta_group_rule)
+    ├── identity/      # okta_group + okta_group_rule
+    └── apps/          # okta_app_oauth + sign-on policy/rule + group assignment
 ```
 
-The root passes a structured list of groups (decoded from `groups.yaml`) to the identity module, which manages the Okta resources. The module does **not** configure a provider — it inherits from the root. It exposes group and group-rule IDs via `outputs.tf`.
+The root decodes `groups.yaml` / `apps.yaml` and passes the data to the modules; `module.apps` also receives `module.identity.group_ids` to resolve group assignments by name. Modules do **not** configure a provider — they inherit from the root.
 
-The groups are the IAM layer for a homelab k3s cluster: Okta sends membership in the OIDC `groups` claim, and the cluster binds each group to a Kubernetes role via a `ClusterRoleBinding` (applied in the separate homelab repo, not here):
+The showcase use case: **Headlamp** (homelab Kubernetes dashboard) is an `okta_app_oauth` OIDC app. Terraform manages the app, its sign-on policy/rule, and the group assignment (`homelab-admins` may sign in). Users authenticate through Okta; the OIDC `groups` claim carries their membership, and the k3s cluster maps groups to RBAC roles (in the separate homelab repo, not here).
 
-- `homelab-admins` → `cluster-admin` (rule: `user.division == "IT"`)
-- `homelab-viewers` → `view` (manual membership, no rule)
+> **State ↔ code:** resource addresses (`module.apps.okta_app_oauth.oidc["Headlamp"]`, `module.identity.okta_group.groups["homelab-admins"]`, etc.) must match the live S3 state exactly. Changing a module name, resource name, or `for_each` key forces destroy/recreate — verify `terraform plan` stays **No changes** for reconcile work.
 
 ## Source of truth — users live outside Terraform
 
-Users are **not** managed by Terraform. They are created in the Okta Admin Console (or, in a real org, pushed in via SCIM/HRIS or directory integration). Terraform owns only:
+Users are **not** managed by Terraform. They are created in the Okta Admin Console (or, in a real org, pushed in via SCIM/HRIS or directory integration). Terraform owns:
 
 - **Groups** (`okta_group`) — stable abstractions of access boundaries
 - **Group rules** (`okta_group_rule`) — auto-assign users to groups based on profile attributes via Okta Expression Language
+- **OIDC apps** (`okta_app_oauth` + sign-on policy/rule + group assignment) — app integrations like Headlamp
 
 ### Adding a user (manual)
 

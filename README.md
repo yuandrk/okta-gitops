@@ -2,9 +2,9 @@
 
 Hands-on learning project: managing an [Okta](https://www.okta.com/) developer org with Terraform via the official [okta/okta](https://registry.terraform.io/providers/okta/okta/latest/docs) provider.
 
-The repo demonstrates a small but real GitOps workflow — modular Terraform, remote state on S3 with native locking, GitHub Actions plan/apply pipeline gated by an environment, and OIDC auth to AWS (no static keys). Users are intentionally **not** managed by Terraform — they live in Okta as the source of truth, and Terraform owns only groups and the rules that auto-assign users by profile attributes.
+The repo demonstrates a small but real GitOps workflow — modular Terraform, remote state on S3 with native locking, GitHub Actions plan/apply pipeline gated by an environment, and OIDC auth to AWS (no static keys). Users are intentionally **not** managed by Terraform — they live in Okta as the source of truth, and Terraform owns groups, the rules that auto-assign users, and the OIDC app integrations.
 
-The concrete use case: Okta groups gate access to a **homelab k3s cluster**. Okta sends group membership in the OIDC `groups` claim; the cluster binds each group to a Kubernetes role. Log in to [Headlamp](https://headlamp.dev/) through Okta and your group decides your access.
+The concrete use case: an OIDC app — [Headlamp](https://headlamp.dev/), the homelab Kubernetes dashboard — lets users sign in through Okta. Terraform manages the app, its sign-on policy, and which group may use it; Okta sends group membership in the OIDC `groups` claim, and the k3s cluster maps those groups to RBAC roles (in the separate homelab repo).
 
 ```text
 Admin Console ──▶ Okta (users)              ◀── source of truth for people
@@ -13,12 +13,13 @@ Admin Console ──▶ Okta (users)              ◀── source of truth for 
                 okta_group_rule  ◀── managed by Terraform
                         │
                         ▼
-                  okta_group      ◀── managed by Terraform
-                        │ OIDC `groups` claim
-                        ▼
-        k3s ClusterRoleBinding   ◀── in the homelab repo (applied separately)
-          homelab-admins  → cluster-admin
-          homelab-viewers → view
+                  okta_group ─────────┐     ◀── managed by Terraform
+                  (homelab-admins)    │ assigned to
+                                      ▼
+                            okta_app_oauth "Headlamp"   ◀── managed by Terraform
+                                        │ OIDC login + `groups` claim
+                                        ▼
+                            Headlamp UI → k3s RBAC   ◀── homelab repo (separate)
 ```
 
 ## Quick start
@@ -37,7 +38,7 @@ terraform apply
 
 Need a deeper dive? See [`docs/`](docs/):
 
-- [Architecture](docs/architecture.md) — repo layout, modules, environments
+- [Architecture](docs/architecture.md) — repo layout, modules (identity, apps)
 - [Source of truth](docs/source-of-truth.md) — why users live in Okta, how group rules work
 - [Runbook](docs/runbook.md) — add a group, add a user, rotate the API token
 - [CI/CD](docs/ci-cd.md) — plan/apply workflows, OIDC trust, branch protection

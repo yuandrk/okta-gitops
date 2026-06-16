@@ -25,8 +25,8 @@ If the user did not land in the expected group, check:
 1. Edit `groups.yaml`:
 
    ```yaml
-   - name: homelab-ci
-     description: CI/CD service access to homelab k3s via Okta OIDC.
+   - name: Platform
+     description: Platform engineering
      rule: 'user.division == "Platform"'
    ```
 
@@ -36,6 +36,22 @@ If the user did not land in the expected group, check:
 ## Change a group rule expression
 
 Same flow as adding a group. The Okta provider deactivates the rule, updates the expression, and reactivates — visible in plan output as `status: ACTIVE → INACTIVE → ACTIVE`.
+
+## Add an OIDC app or change who may use it
+
+1. Edit `apps.yaml` — add an app entry, or change an existing app's `groups` list (which Okta groups may sign in):
+
+   ```yaml
+   - name: Grafana
+     redirect_uris: ["https://grafana.yuandrk.net/login/generic_oauth"]
+     groups: ["homelab-admins"]
+     signon_policy:
+       name: "Grafana Sign-On Policy"
+       description: "Managed by Terraform"
+   ```
+
+2. PR → review plan → merge. After apply, read the new client ID with `terraform output oidc_client_ids` and the secret with `terraform output -raw oidc_client_secrets` to wire the relying party.
+3. **Renaming an app or changing its `groups` keys changes the resource address** (`okta_app_oauth.oidc["<name>"]`, `okta_app_group_assignment.oidc["<app>:<group>"]`) — Terraform will destroy and recreate. Confirm that's intended in the plan before applying.
 
 ## Rotate the Okta API token
 

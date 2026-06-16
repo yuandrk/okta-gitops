@@ -4,40 +4,43 @@
 
 ```text
 okta-gitops/
-├── main.tf            # provider config, backend block, module call
+├── main.tf            # provider, backend, locals, module.identity + module.apps
 ├── variables.tf       # input variables (org_name, base_url, api_token)
+├── outputs.tf         # oidc_client_ids, oidc_client_secrets
 ├── backend.hcl        # S3 backend config — passed via -backend-config
-├── groups.yaml        # plain-YAML list of groups + Okta Expression Language rules
+├── groups.yaml        # plain-YAML groups + Okta Expression Language rules
+├── apps.yaml          # plain-YAML OIDC app integrations (Headlamp)
 ├── terraform.tfvars   # real credentials (gitignored — copy from .example)
 ├── .terraform.lock.hcl
 ├── modules/
-│   └── identity/      # okta_group + okta_group_rule
+│   ├── identity/      # okta_group + okta_group_rule
+│   └── apps/          # okta_app_oauth + sign-on policy/rule + group assignment
 ├── .github/workflows/
 │   ├── plan.yml       # PR-triggered: fmt, init, validate, plan → PR comment
 │   └── apply.yml      # main-triggered: apply, gated by GitHub Environment
 └── docs/              # this directory
 ```
 
-A single Terraform root at the repo root — no dev/prod split. For a one-person learning project managing a handful of groups, a second environment is pure overhead (extra state object, IAM trust scope, duplicate Okta noise). If a real need for staging appears, split then.
+A single Terraform root at the repo root — no dev/prod split. For a one-person learning project, a second environment is pure overhead (extra state object, IAM trust scope, duplicate Okta noise). If a real need for staging appears, split then.
 
-## Root vs module
+## Root vs modules
 
-**Root** (repo root) is the Terraform root: provider config, S3 backend, credentials, and the call into the identity module with data decoded from `groups.yaml`.
+**Root** (repo root) is the Terraform root: provider config, S3 backend, credentials. It decodes `groups.yaml` / `apps.yaml` and calls the modules — passing `module.identity.group_ids` into `module.apps` so app assignments resolve groups by name.
 
-**Module** (`modules/identity/`) describes *what* Okta resources to manage. It takes structured input (a list of groups), produces `okta_group` + `okta_group_rule`, and exports IDs via `outputs.tf`. It does **not** configure a provider — it inherits from the root.
+**Modules** describe *what* Okta resources to manage. They take structured input, produce resources, and export IDs/outputs. They do **not** configure a provider — they inherit from the root.
 
 | File | Purpose |
 | --- | --- |
-| `main.tf` | Provider config, backend block, module call |
+| `main.tf` | Provider config, backend block, module calls |
 | `variables.tf` | Input variables (`org_name`, `base_url`, `api_token`) |
+| `outputs.tf` | `oidc_client_ids`, `oidc_client_secrets` (re-exported from `module.apps`) |
 | `backend.hcl` | S3 backend config — passed via `terraform init -backend-config=…` |
-| `groups.yaml` | Plain-YAML list of groups + Okta Expression Language rules |
+| `groups.yaml` | Plain-YAML groups + Okta Expression Language rules |
+| `apps.yaml` | Plain-YAML OIDC app integrations |
 | `terraform.tfvars` | Real credentials (gitignored — copy from `.example`) |
 | `.terraform.lock.hcl` | Provider version lockfile (committed) |
 
 ## Identity module
-
-The only module with real resources today.
 
 ```text
 modules/identity/
@@ -50,29 +53,27 @@ Input shape (`var.groups`):
 
 ```hcl
 groups = [
-  {
-    name        = "homelab-admins"
-    description = "Full kube-admin access to homelab k3s via Headlamp (Okta OIDC)."
-    rule        = "user.division == \"IT\""
-  },
+  { name = "homelab-admins", description = "...", rule = "user.division == \"IT\"" },
 ]
 ```
 
-`rule` is optional. Groups without a rule (e.g. `homelab-viewers`) are created but get no auto-assignment — membership is set manually.
+`rule` is optional — a group without one is created but gets no auto-assignment (membership set manually). The module deliberately does **not** manage `okta_user` or `okta_group_memberships` — see [Source of truth](source-of-truth.md).
 
-The module deliberately does **not** manage `okta_user` or `okta_group_memberships` — see [Source of truth](source-of-truth.md) for why.
+## Apps module
 
-## How groups map to access
+```text
+modules/apps/
+├── main.tf       # okta_app_oauth + okta_app_signon_policy(+rule) + okta_app_group_assignment
+├── variables.tf  # var.apps, var.group_ids
+└── outputs.tf    # client_ids, client_secrets
+```
 
-The groups are the IAM layer for a homelab k3s cluster. Okta sends group membership in the OIDC `groups` claim; the cluster binds each group to a Kubernetes role via a `ClusterRoleBinding`. That binding lives in the **separate homelab repo**, not here — this repo owns only the Okta side.
+Data-driven via `for_each` over `var.apps`. For each app it creates the OIDC integration, a dedicated sign-on policy + rule, and one group assignment per entry in the app's `groups` list. **Resource addresses must match live state** — apps key on the app name (`okta_app_oauth.oidc["Headlamp"]`); assignments key on `"App:Group"` (`okta_app_group_assignment.oidc["Headlamp:homelab-admins"]`).
 
-| Okta group | k8s role | Assignment |
-| --- | --- | --- |
-| `homelab-admins` | `cluster-admin` | rule: `user.division == "IT"` |
-| `homelab-viewers` | `view` (read-only) | manual membership |
+The showcase app is **Headlamp** (homelab Kubernetes dashboard): users sign in via Okta OIDC, the `groups` claim carries their membership, and the k3s cluster maps groups to RBAC roles — that `ClusterRoleBinding` lives in the **separate homelab repo**, not here.
 
 ## Why this layout
 
-- **Single root, no environments** — environments differ in *data and state*, not in *what resources exist*. For one person and a couple of groups, a second env is overhead, not safety. Module/root separation is kept so resources stay reusable if an env split is ever needed.
-- **Plain YAML for group/rule data** keeps PR diffs human-readable. Group names and rule expressions are not secrets, so encryption (SOPS, etc.) was removed in favor of clarity.
-- **Okta owns identity, the homelab repo owns RBAC** — the OIDC `groups` claim is the contract between them. Change access by changing group membership in Okta, not by editing cluster YAML per user.
+- **Single root, no environments** — environments differ in *data and state*, not in *what resources exist*. For one person, a second env is overhead, not safety. Module/root separation is kept so resources stay reusable if an env split is ever needed.
+- **Plain YAML for data** keeps PR diffs human-readable. Group names, rule expressions, and app config are not secrets, so encryption (SOPS, etc.) was removed in favor of clarity.
+- **Okta owns identity + app integration, the homelab repo owns RBAC** — the OIDC `groups` claim is the contract between them. Change access by changing group membership in Okta, not by editing cluster YAML per user.
