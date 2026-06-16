@@ -22,12 +22,12 @@ If the user did not land in the expected group, check:
 
 ## Add a group (with auto-assignment rule)
 
-1. Edit `environments/prod/groups.yaml`:
+1. Edit `groups.yaml`:
 
    ```yaml
-   - name: Sales
-     description: Sales team
-     rule: 'user.division == "Sales"'
+   - name: Platform
+     description: Platform engineering
+     rule: 'user.division == "Platform"'
    ```
 
 2. Open a PR. CI runs `terraform plan` and posts the diff as a PR comment.
@@ -37,12 +37,28 @@ If the user did not land in the expected group, check:
 
 Same flow as adding a group. The Okta provider deactivates the rule, updates the expression, and reactivates — visible in plan output as `status: ACTIVE → INACTIVE → ACTIVE`.
 
+## Add an OIDC app or change who may use it
+
+1. Edit `apps.yaml` — add an app entry, or change an existing app's `groups` list (which Okta groups may sign in):
+
+   ```yaml
+   - name: Grafana
+     redirect_uris: ["https://grafana.yuandrk.net/login/generic_oauth"]
+     groups: ["homelab-admins"]
+     signon_policy:
+       name: "Grafana Sign-On Policy"
+       description: "Managed by Terraform"
+   ```
+
+2. PR → review plan → merge. After apply, read the new client ID with `terraform output oidc_client_ids` and the secret with `terraform output -raw oidc_client_secrets` to wire the relying party.
+3. **Renaming an app or changing its `groups` keys changes the resource address** (`okta_app_oauth.oidc["<name>"]`, `okta_app_group_assignment.oidc["<app>:<group>"]`) — Terraform will destroy and recreate. Confirm that's intended in the plan before applying.
+
 ## Rotate the Okta API token
 
 1. Admin Console → **Security → API → Tokens** → create new token
 2. Copy the new token, invalidate the old one
 3. Update GitHub repo secret `TF_VAR_API_TOKEN` (Settings → Secrets and variables → Actions)
-4. Update local `environments/prod/terraform.tfvars` if you run Terraform locally
+4. Update local `terraform.tfvars` if you run Terraform locally
 5. Optional: `terraform plan` — should show no changes (token doesn't appear in state)
 
 ## Recover from a broken state lock
@@ -66,8 +82,7 @@ Two options, in order of preference:
 
 ## Adding a non-trivial resource
 
-When adding something the existing modules don't cover (an app, a policy):
+When adding something the identity module doesn't cover (an app, a policy):
 
-1. Decide if it goes in `modules/apps/` (or `modules/policies/`) or in the environment root for now
-2. Don't pre-abstract — first 2–3 instances should be concrete resources, abstract only when you see real shared shape
-3. Reference the resource through `module.identity.group_ids["<name>"]` if it needs to assign to existing groups
+1. Start it as a concrete resource in the root `main.tf`; extract a `modules/<name>/` only once you have 2–3 instances sharing a real shape — don't pre-abstract
+2. Reference existing groups through `module.identity.group_ids["<name>"]` if the resource needs to assign to them (e.g. an `okta_app_group_assignment` for `homelab-admins`)

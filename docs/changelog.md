@@ -101,3 +101,20 @@ Moved long-form docs out of `README.md` and `CLAUDE.md` into `docs/`:
 - `docs/architecture.md`, `docs/source-of-truth.md`, `docs/runbook.md`, `docs/ci-cd.md`, `docs/state-backend.md`
 - `TODO.md` → `docs/changelog.md` (this file)
 - `CLAUDE.md` retained as the AI-facing terse reference
+
+---
+
+## Flatten to a single root + reconcile state into code ✓
+
+Simplified the repo from a dev/prod environment split into one Terraform root, and — the bigger fix — brought the **live state into code**. The committed config had drifted: `modules/apps/` was an empty placeholder, but the S3 state held a full Headlamp OIDC setup applied out-of-band (never committed). The first attempt at this change deleted `modules/apps/`, which would have destroyed Headlamp on apply; caught at plan time and reversed.
+
+- Moved `environments/prod/*` to the repo root; module sources `../../modules/<x>` → `./modules/<x>`
+- Deleted `environments/` (dev + prod) and the empty `modules/policies/` scaffold
+- **Reconstructed `modules/apps/`** from live state — data-driven (`var.apps` from `apps.yaml`), `for_each` keyed to match existing addresses exactly (`okta_app_oauth.oidc["Headlamp"]`, sign-on policy + rule, `okta_app_group_assignment.oidc["Headlamp:<group>"]`)
+- Added root `outputs.tf` (`oidc_client_ids`, `oidc_client_secrets`) matching the outputs already in state
+- Reconciled live drift discovered during the first `plan`: the org had been edited by hand (a duplicate Headlamp app + a new `homelab-admins` group created out-of-band, the managed app re-pointed to `homelab-admins` and a different sign-on policy)
+- Simplified groups to a single **`homelab-admins`** (imported the manually-created group `00g147r6djsGZOrC6698`; added a `user.division == "IT"` rule); **destroyed `Engineering` / `IT-Admins`** groups + rules
+- Re-pointed the managed Headlamp app back to its Terraform-managed sign-on policy and assigned it to `homelab-admins`; verified `terraform plan` → **No changes**
+- Workflows: dropped the `matrix.environment` / `working-directory` indirection, retargeted trigger paths to root files (`*.tf`, `groups.yaml`, `apps.yaml`, `modules/**`), required check renamed `plan / prod` → `plan`
+- S3 state key left as `prod/terraform.tfstate` to avoid a migration; documented how to rename
+- Follow-up left to the user: delete the leftover duplicate app `Headlamp (homelab k3s)` (`0oa147ra1tyovrwNk698`) in the Admin Console

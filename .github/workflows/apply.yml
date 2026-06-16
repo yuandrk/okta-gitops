@@ -14,7 +14,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "environments/prod/**"
+      - "*.tf"
+      - "groups.yaml"
+      - "backend.hcl"
       - "modules/**"
 
 permissions:
@@ -23,17 +25,9 @@ permissions:
 
 jobs:
   apply:
-    name: apply / ${{ matrix.environment }}
+    name: apply
     runs-on: ubuntu-latest
-    environment: ${{ matrix.environment }} # triggers manual approval gate
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: [prod]
-
-    defaults:
-      run:
-        working-directory: environments/${{ matrix.environment }}
+    environment: prod # triggers manual approval gate (required reviewers)
 
     steps:
       - uses: actions/checkout@v4
