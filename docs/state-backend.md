@@ -1,6 +1,6 @@
 # State backend
 
-State for the active environment lives in S3 with native S3 locking (no DynamoDB).
+State lives in S3 with native S3 locking (no DynamoDB).
 
 ## Layout
 
@@ -11,9 +11,9 @@ s3://terraform-state-homelab-yuandrk/
     └── terraform.tfstate.tflock  # transient lock object (only while apply runs)
 ```
 
-Bucket is in `eu-west-2`. The legacy `dev/terraform.tfstate` key was deleted when prod became the active environment — `environments/dev/backend.hcl` still references it as a reminder that dev is showcase-only.
+Bucket is in `eu-west-2`. The `prod/` key prefix is legacy from the old dev/prod layout — it's kept as-is to avoid a state migration after flattening to a single root. To rename it to something like `okta-gitops/terraform.tfstate`, edit `key` in `backend.hcl` and run `terraform init -reconfigure -migrate-state`.
 
-## `backend.hcl` for prod
+## `backend.hcl`
 
 ```hcl
 bucket       = "terraform-state-homelab-yuandrk"
@@ -23,7 +23,7 @@ encrypt      = true
 use_lockfile = true   # S3 native locking, requires Terraform ≥ 1.10
 ```
 
-Pass with `terraform init -backend-config=backend.hcl`. The `backend "s3" {}` block in `main.tf` is intentionally empty — config is supplied at init time so the same `main.tf` could be reused across multiple state keys if needed.
+Pass with `terraform init -backend-config=backend.hcl`. The `backend "s3" {}` block in `main.tf` is intentionally empty — config is supplied at init time so the same `main.tf` could be reused against a different state key if needed.
 
 ## Why native S3 locking, not DynamoDB
 
@@ -33,7 +33,7 @@ Pass with `terraform init -backend-config=backend.hcl`. The `backend "s3" {}` bl
 
 ## Provider lockfile
 
-`.terraform.lock.hcl` is committed per environment. It pins the exact provider versions and checksum hashes Terraform fetched, so CI and local runs use byte-identical providers. Run `terraform init -upgrade` to bump.
+`.terraform.lock.hcl` is committed. It pins the exact provider versions and checksum hashes Terraform fetched, so CI and local runs use byte-identical providers. Run `terraform init -upgrade` to bump.
 
 ## Recovery scenarios
 

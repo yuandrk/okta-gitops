@@ -1,8 +1,0 @@
-groups:
-  - name: Engineering
-    description: All engineering staff
-    rule: 'user.division == "Engineering"'
-
-  - name: IT-Admins
-    description: IT administrators with elevated access
-    rule: 'user.userType == "Employee" and user.division == "IT"'

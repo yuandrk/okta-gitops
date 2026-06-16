@@ -9,6 +9,47 @@ Users are **not** Terraform resources. They are created in the Okta Admin Consol
 
 When a user's profile is created or changed in the SoT, Okta evaluates all active group rules and assigns the user to matching groups automatically.
 
+## From Okta group to homelab access
+
+The groups exist to gate access to a homelab k3s cluster. The chain:
+
+```text
+user.division == "IT"  →  homelab-admins  →  OIDC `groups` claim  →  ClusterRoleBinding  →  cluster-admin
+```
+
+When you sign in to [Headlamp](https://headlamp.dev/) via Okta OIDC, the ID token carries your group memberships in the `groups` claim. The k3s API server (configured with `--oidc-groups-claim=groups`) reads them, and a `ClusterRoleBinding` maps each group to a Kubernetes role. That binding lives in the **separate homelab repo** — this repo owns only the Okta side. For reference, the binding looks like:
+
+```yaml
+# Applied in the homelab cluster, NOT by this repo.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: okta-homelab-admins
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: homelab-admins        # matches the Okta group name in the `groups` claim
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: okta-homelab-viewers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: homelab-viewers
+```
+
+The contract between Okta and the cluster is just the group name string. Add someone to `homelab-admins` in Okta (or let the rule do it) and they get `cluster-admin` on next login — no cluster change needed.
+
 ## Why this split
 
 | Concern | Where it lives |

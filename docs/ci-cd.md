@@ -6,11 +6,11 @@ GitHub Actions runs Terraform. Authentication to AWS (for S3 state) is via OIDC 
 
 ### `plan.yml` — pull request gate
 
-Triggers on PRs that touch `environments/prod/**` or `modules/**`.
+Triggers on PRs that touch the root Terraform files (`*.tf`, `groups.yaml`, `backend.hcl`) or `modules/**`.
 
 Steps: `fmt -check` → `init -backend-config=backend.hcl` → `validate` → `plan -no-color` → post the plan as a PR comment.
 
-The PR cannot merge until this check passes (branch protection enforces required check `plan / prod`).
+The PR cannot merge until this check passes (branch protection enforces required check `plan`).
 
 ### `apply.yml` — main-branch apply
 
@@ -45,7 +45,7 @@ If you fork or rename the repo, update the trust policy to match — otherwise O
 Configured in **Settings → Branches → Branch protection rules**:
 
 - Require a pull request before merging
-- Require status check `plan / prod` to pass
+- Require status check `plan` to pass
 - Strict: branch must be up to date with `main` before merging
 
 Admin can bypass branch protection — the recent restructuring commits used this. Day-to-day, go through PRs.
@@ -60,5 +60,5 @@ Admin can bypass branch protection — the recent restructuring commits used thi
 ## CI gotchas
 
 - The `plan` job uses `continue-on-error: true` so it can still post the PR comment when plan fails. The job then re-fails at the end via `Fail if plan failed`.
-- `terraform fmt -check` runs over `../../` (the repo root) — formatting issues anywhere fail the check.
+- `terraform fmt -check` runs over `.` (the repo root) — formatting issues anywhere fail the check.
 - `terraform_version: "~1.10"` is pinned in workflows because S3 native locking requires Terraform ≥ 1.10.

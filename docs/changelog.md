@@ -101,3 +101,17 @@ Moved long-form docs out of `README.md` and `CLAUDE.md` into `docs/`:
 - `docs/architecture.md`, `docs/source-of-truth.md`, `docs/runbook.md`, `docs/ci-cd.md`, `docs/state-backend.md`
 - `TODO.md` → `docs/changelog.md` (this file)
 - `CLAUDE.md` retained as the AI-facing terse reference
+
+---
+
+## Flatten to a single root + homelab groups ✓
+
+Simplified the repo from a dev/prod environment split into one Terraform root, and refocused the example groups on the real use case: gating homelab k3s access via Okta OIDC.
+
+- Moved `environments/prod/{main.tf,variables.tf,backend.hcl,groups.yaml,terraform.tfvars*,.terraform.lock.hcl}` to the repo root; `module.identity` source changed `../../modules/identity` → `./modules/identity`
+- Deleted `environments/` (dev showcase + prod) and the empty `modules/policies/`, `modules/apps/` scaffolds
+- Replaced `Engineering` / `IT-Admins` groups with `homelab-admins` (rule `user.division == "IT"` → `cluster-admin`) and `homelab-viewers` (manual membership → `view`)
+- `homelab-admins` already existed in the org (created manually) — brought into state with `terraform import` instead of recreating; `Engineering` / `IT-Admins` are destroyed by the next apply
+- Workflows: dropped the `matrix.environment` / `working-directory` indirection, retargeted trigger paths to root files, required check renamed `plan / prod` → `plan`
+- S3 state key left as `prod/terraform.tfstate` to avoid a migration; documented how to rename
+- Documented the Okta-group → OIDC `groups` claim → k8s `ClusterRoleBinding` mapping (binding lives in the separate homelab repo)

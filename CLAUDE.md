@@ -14,20 +14,18 @@ Hands-on learning project for the [okta/okta](https://registry.terraform.io/prov
 
 Never hardcode secrets. Supply via:
 
-- `terraform.tfvars` (gitignored, inside the environment directory) for local work
+- `terraform.tfvars` (gitignored, in the repo root) for local work
 - `TF_VAR_api_token` env var for CI or shell sessions
 
-Variable names: `org_name`, `base_url`, `api_token` (declared in each environment's `variables.tf`).
+Variable names: `org_name`, `base_url`, `api_token` (declared in `variables.tf`).
 
 ## First-time setup
 
 ```bash
-# Set up credentials for the prod environment (the active one)
-cp environments/prod/terraform.tfvars.example environments/prod/terraform.tfvars
-# Edit environments/prod/terraform.tfvars with your Okta API token
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your Okta API token
 
 # Init and validate
-cd environments/prod
 terraform init -backend-config=backend.hcl
 terraform validate
 terraform plan
@@ -35,11 +33,9 @@ terraform plan
 
 ## Common commands
 
-All Terraform commands must be run from `environments/prod/` (the active env).
+All Terraform commands run from the repo root (the single Terraform root).
 
 ```bash
-cd environments/prod
-
 # Download providers and init backend
 terraform init -backend-config=backend.hcl
 
@@ -69,30 +65,25 @@ terraform state list
 
 ## Architecture
 
+Single Terraform root at the repo root — no dev/prod split.
+
 ```
 okta-gitops/
-├── modules/
-│   ├── identity/   # groups + group rules (okta_group, okta_group_rule)
-│   ├── policies/   # scaffolded (no resources yet) — sign-on, password, MFA policies
-│   └── apps/       # scaffolded (no resources yet) — SAML/OIDC app integrations
-└── environments/
-    ├── prod/       # Active Terraform root: providers, backend, module calls, groups.yaml
-    └── dev/        # Read-only showcase — same layout as prod, not wired to CI or live state
+├── main.tf            # provider config, backend block, module call
+├── variables.tf       # input variables (org_name, base_url, api_token)
+├── backend.hcl        # S3 backend config (passed via -backend-config)
+├── groups.yaml        # plain-YAML list of groups + Okta Expression Language rules
+├── terraform.tfvars   # actual credentials (gitignored — copy from .example)
+└── modules/
+    └── identity/      # groups + group rules (okta_group, okta_group_rule)
 ```
 
-**`environments/prod/` is the only active environment.** `environments/dev/` is kept as a documentation-grade copy showing the same wiring (provider, module call) — do not run Terraform against it.
+The root passes a structured list of groups (decoded from `groups.yaml`) to the identity module, which manages the Okta resources. The module does **not** configure a provider — it inherits from the root. It exposes group and group-rule IDs via `outputs.tf`.
 
-Each `environments/<env>/` directory is an independent Terraform root:
+The groups are the IAM layer for a homelab k3s cluster: Okta sends membership in the OIDC `groups` claim, and the cluster binds each group to a Kubernetes role via a `ClusterRoleBinding` (applied in the separate homelab repo, not here):
 
-| File | Purpose |
-| --- | --- |
-| `main.tf` | Provider config, backend block, module calls |
-| `variables.tf` | Input variables (org_name, base_url, api_token) |
-| `backend.hcl` | S3 backend config (not committed to TF config — passed via `-backend-config`) |
-| `groups.yaml` | Plain-YAML list of groups + Okta Expression Language rules |
-| `terraform.tfvars` | Actual credentials (gitignored — copy from `.example`) |
-
-Modules accept structured data (list of groups) from the environment and manage the Okta resources. Modules do **not** configure providers — they inherit from the calling environment. The identity module exposes group and group-rule IDs via `outputs.tf` for use by future modules.
+- `homelab-admins` → `cluster-admin` (rule: `user.division == "IT"`)
+- `homelab-viewers` → `view` (manual membership, no rule)
 
 ## Source of truth — users live outside Terraform
 
@@ -109,7 +100,7 @@ Users are **not** managed by Terraform. They are created in the Okta Admin Conso
 
 ### Adding/changing a group or rule
 
-1. Edit `environments/prod/groups.yaml` — add a new group entry with optional `rule` (Okta Expression Language)
+1. Edit `groups.yaml` — add a new group entry with optional `rule` (Okta Expression Language)
 2. `terraform plan` → review
 3. `terraform apply` (or merge to main and let CI apply)
 
@@ -117,10 +108,9 @@ Rule expression reference: <https://developer.okta.com/docs/reference/okta-expre
 
 ## State & lock file
 
-- State for the active environment is stored in **S3** at `s3://terraform-state-homelab-yuandrk/prod/terraform.tfstate` (eu-west-2)
-- The `dev/` showcase intentionally has no live state object — its `backend.hcl` still points to the legacy `dev/terraform.tfstate` key, which no longer exists
-- Init prod with `terraform init -backend-config=backend.hcl` from `environments/prod/`
-- `.terraform.lock.hcl` **should be committed** — it pins provider versions per environment
+- State is stored in **S3** at `s3://terraform-state-homelab-yuandrk/prod/terraform.tfstate` (eu-west-2). The `prod/` key is legacy from the old layout — kept to avoid a state migration; rename via `terraform init -migrate-state` only if desired.
+- Init with `terraform init -backend-config=backend.hcl` from the repo root
+- `.terraform.lock.hcl` **should be committed** — it pins provider versions
 - `backend.hcl` uses `use_lockfile = true` (S3-native locking) — requires Terraform ≥ 1.10; CI workflows pin `~1.10`
 - Local Terraform floor is `>= 1.6.0` (`main.tf`), but S3 locking requires `>= 1.10` — use 1.10+ locally too
 

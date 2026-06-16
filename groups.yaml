@@ -1,0 +1,19 @@
+# Okta groups managed by Terraform. Users are NOT defined here — they live in Okta
+# (created via Admin Console or upstream SCIM/HRIS). Group rules use Okta Expression
+# Language to auto-assign users by profile attributes.
+#
+# These groups are the IAM layer for the homelab: Okta sends group membership in the
+# OIDC `groups` claim, and the homelab k3s cluster binds each group to a Kubernetes
+# role via a ClusterRoleBinding (see docs/source-of-truth.md). Log in to Headlamp
+# through Okta → your group → your cluster access.
+#
+# Reference: https://developer.okta.com/docs/reference/okta-expression-language/
+groups:
+  - name: homelab-admins
+    description: Full kube-admin access to homelab k3s via Headlamp (Okta OIDC). Mapped to cluster-admin ClusterRoleBinding.
+    rule: 'user.division == "IT"' # division=IT → auto-assigned → cluster-admin
+
+  - name: homelab-viewers
+    description: Read-only access to homelab k3s via Headlamp (Okta OIDC). Mapped to view ClusterRoleBinding.
+    # no rule — membership is assigned manually in the Admin Console.
+    # Demonstrates manual membership alongside the rule-based homelab-admins group.

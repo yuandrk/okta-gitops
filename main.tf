@@ -26,6 +26,6 @@ locals {
 }
 
 module "identity" {
-  source = "../../modules/identity"
+  source = "./modules/identity"
   groups = local.org.groups
 }

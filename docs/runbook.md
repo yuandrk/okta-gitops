@@ -22,12 +22,12 @@ If the user did not land in the expected group, check:
 
 ## Add a group (with auto-assignment rule)
 
-1. Edit `environments/prod/groups.yaml`:
+1. Edit `groups.yaml`:
 
    ```yaml
-   - name: Sales
-     description: Sales team
-     rule: 'user.division == "Sales"'
+   - name: homelab-ci
+     description: CI/CD service access to homelab k3s via Okta OIDC.
+     rule: 'user.division == "Platform"'
    ```
 
 2. Open a PR. CI runs `terraform plan` and posts the diff as a PR comment.
@@ -42,7 +42,7 @@ Same flow as adding a group. The Okta provider deactivates the rule, updates the
 1. Admin Console → **Security → API → Tokens** → create new token
 2. Copy the new token, invalidate the old one
 3. Update GitHub repo secret `TF_VAR_API_TOKEN` (Settings → Secrets and variables → Actions)
-4. Update local `environments/prod/terraform.tfvars` if you run Terraform locally
+4. Update local `terraform.tfvars` if you run Terraform locally
 5. Optional: `terraform plan` — should show no changes (token doesn't appear in state)
 
 ## Recover from a broken state lock
@@ -66,8 +66,7 @@ Two options, in order of preference:
 
 ## Adding a non-trivial resource
 
-When adding something the existing modules don't cover (an app, a policy):
+When adding something the identity module doesn't cover (an app, a policy):
 
-1. Decide if it goes in `modules/apps/` (or `modules/policies/`) or in the environment root for now
-2. Don't pre-abstract — first 2–3 instances should be concrete resources, abstract only when you see real shared shape
-3. Reference the resource through `module.identity.group_ids["<name>"]` if it needs to assign to existing groups
+1. Start it as a concrete resource in the root `main.tf`; extract a `modules/<name>/` only once you have 2–3 instances sharing a real shape — don't pre-abstract
+2. Reference existing groups through `module.identity.group_ids["<name>"]` if the resource needs to assign to them (e.g. an `okta_app_group_assignment` for `homelab-admins`)

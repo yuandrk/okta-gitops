@@ -4,22 +4,28 @@ Hands-on learning project: managing an [Okta](https://www.okta.com/) developer o
 
 The repo demonstrates a small but real GitOps workflow — modular Terraform, remote state on S3 with native locking, GitHub Actions plan/apply pipeline gated by an environment, and OIDC auth to AWS (no static keys). Users are intentionally **not** managed by Terraform — they live in Okta as the source of truth, and Terraform owns only groups and the rules that auto-assign users by profile attributes.
 
+The concrete use case: Okta groups gate access to a **homelab k3s cluster**. Okta sends group membership in the OIDC `groups` claim; the cluster binds each group to a Kubernetes role. Log in to [Headlamp](https://headlamp.dev/) through Okta and your group decides your access.
+
 ```text
-HR/Admin Console ──▶ Okta (users)            ◀── source of truth for people
-                            │
-                            │ profile attributes (userType, division)
-                            ▼
-                    okta_group_rule  ◀── managed by Terraform
-                            │
-                            ▼
-                       okta_group    ◀── managed by Terraform
+Admin Console ──▶ Okta (users)              ◀── source of truth for people
+                        │ profile attrs (division)
+                        ▼
+                okta_group_rule  ◀── managed by Terraform
+                        │
+                        ▼
+                  okta_group      ◀── managed by Terraform
+                        │ OIDC `groups` claim
+                        ▼
+        k3s ClusterRoleBinding   ◀── in the homelab repo (applied separately)
+          homelab-admins  → cluster-admin
+          homelab-viewers → view
 ```
 
 ## Quick start
 
 ```bash
 git clone https://github.com/yuandrk/okta-gitops
-cd okta-gitops/environments/prod
+cd okta-gitops
 
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars — add your Okta API token

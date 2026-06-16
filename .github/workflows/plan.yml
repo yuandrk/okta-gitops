@@ -12,7 +12,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "environments/prod/**"
+      - "*.tf"
+      - "groups.yaml"
+      - "backend.hcl"
       - "modules/**"
 
 permissions:
@@ -22,16 +24,8 @@ permissions:
 
 jobs:
   plan:
-    name: plan / ${{ matrix.environment }}
+    name: plan
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: [prod]
-
-    defaults:
-      run:
-        working-directory: environments/${{ matrix.environment }}
 
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +42,7 @@ jobs:
 
       - name: Terraform fmt check
         id: fmt
-        run: terraform fmt -check -recursive ../../
+        run: terraform fmt -check -recursive .
         continue-on-error: true
 
       - name: Terraform init
@@ -75,7 +69,7 @@ jobs:
               `#### Fmt 🖌 \`${{ steps.fmt.outcome }}\``,
               `#### Init ⚙️ \`${{ steps.init.outcome }}\``,
               `#### Validate 🤖 \`${{ steps.validate.outcome }}\``,
-              `#### Plan 📖 \`${{ steps.plan.outcome }}\` — \`${{ matrix.environment }}\``,
+              `#### Plan 📖 \`${{ steps.plan.outcome }}\``,
               `<details><summary>Show Plan</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n</details>`,
               `*triggered by @${{ github.actor }}*`,
             ].join('\n\n');
