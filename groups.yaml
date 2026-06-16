@@ -10,3 +10,6 @@ groups:
   - name: homelab-admins
     description: Full kube-admin access to homelab k3s via Headlamp (Okta OIDC). Mapped to cluster-admin ClusterRoleBinding.
     rule: 'user.division == "IT"' # division=IT → auto-assigned → may sign in to Headlamp
+  - name: all-user
+    description: all user
+
