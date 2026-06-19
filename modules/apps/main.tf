@@ -35,6 +35,11 @@ resource "okta_app_oauth" "oidc" {
   hide_ios                  = each.value.hide_ios
   hide_web                  = each.value.hide_web
 
+  # IdP-initiated login (Okta dashboard tile / initiate_login_uri).
+  login_mode   = each.value.login_mode
+  login_scopes = each.value.login_scopes
+  login_uri    = each.value.login_uri
+
   # Bind the app to its dedicated sign-on (authentication) policy.
   authentication_policy = okta_app_signon_policy.oidc[each.key].id
 

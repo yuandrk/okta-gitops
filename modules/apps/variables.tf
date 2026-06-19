@@ -12,7 +12,12 @@ variable "apps" {
     issuer_mode               = optional(string, "ORG_URL")
     hide_ios                  = optional(bool, true)
     hide_web                  = optional(bool, true)
-    groups                    = optional(list(string), [])
+    # IdP-initiated sign-on. login_mode DISABLED (default) = no IdP-initiated login;
+    # SPEC/CUSTOM enable it and require login_uri (+ login_scopes for the id_token).
+    login_mode   = optional(string, "DISABLED")
+    login_scopes = optional(list(string), [])
+    login_uri    = optional(string)
+    groups       = optional(list(string), [])
     signon_policy = object({
       name        = string
       description = optional(string)
