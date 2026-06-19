@@ -109,6 +109,13 @@ Users are **not** managed by Terraform. They are created in the Okta Admin Conso
 
 Rule expression reference: <https://developer.okta.com/docs/reference/okta-expression-language/>. Common attributes: `user.userType`, `user.division`, `user.department`, `user.title`, `user.organization`.
 
+### Deliberately unmanaged resources
+
+Not everything in the org belongs in Terraform. Left out **on purpose**:
+
+- **Built-in groups** (`Everyone`, `Okta Administrators`) and **system Okta apps** (Admin Console, Dashboard, Browser Plugin, Workflows, etc.) — managed by Okta itself.
+- **`C_mcp`** — the service (machine-to-machine) OIDC app whose `private_key_jwt` credential the okta-mcp-server authenticates with. It uses **Okta-generated, auto-rotating signing keys** (`autoKeyRotation: true`, multiple ACTIVE/INACTIVE keys). Declaring its `jwks` in Terraform would fight Okta's rotation (perpetual drift) and an apply could overwrite the active key and break the MCP's own auth. It's also a bootstrap credential that rarely changes. So it stays in the Admin Console; its private key lives in 1Password (`op://`), never in code.
+
 ## State & lock file
 
 - State is stored in **S3** at `s3://terraform-state-homelab-yuandrk/prod/terraform.tfstate` (eu-west-2). The `prod/` key is legacy from the old layout — kept to avoid a state migration; rename via `terraform init -migrate-state` only if desired.

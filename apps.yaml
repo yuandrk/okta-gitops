@@ -15,7 +15,11 @@ apps:
     consent_method: TRUSTED
     issuer_mode: ORG_URL
     hide_ios: true
-    hide_web: true
+    hide_web: false # visible on the Okta end-user dashboard
+    # IdP-initiated login enabled (set manually in Admin Console; tracked here to match live)
+    login_mode: SPEC
+    login_scopes: ["openid"]
+    login_uri: "https://headlamp.yuandrk.net"
     groups: ["homelab-admins"] # who may sign in to Headlamp
     signon_policy:
       name: "Headlamp Sign-On Policy"
