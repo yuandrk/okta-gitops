@@ -13,5 +13,4 @@ groups:
   - name: Andriuk corp
     description: Main users
     rule: 'user.division == "IT"' # division=IT → auto-assigned (same cohort as homelab-admins)
-  - name: Test
-    description: Main test
+
