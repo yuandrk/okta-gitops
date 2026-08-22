@@ -179,6 +179,14 @@ The `okta-mcp-server` MCP tools read the live org **read-only** — use them to 
 
 - `.github/workflows/plan.yml` — PR trigger: fmt, init, validate, plan; posts plan as PR comment
 - `.github/workflows/apply.yml` — push to `main`: gated by GitHub Environment `prod` (manual approval), then `apply -auto-approve`
+
+> **`paths:` filters must list every input file.** Both workflows gate on a `paths:` allowlist
+> (`*.tf`, `groups.yaml`, `apps.yaml`, `backend.hcl`, `modules/**`). A change to a file *not* in
+> that list triggers **nothing** — no plan on the PR, and no apply on merge. `apps.yaml` was
+> missing until 2026-08-22, so an `apps.yaml`-only change silently skipped CI entirely; it went
+> unnoticed because every earlier `apps.yaml` commit happened to also touch `groups.yaml` or
+> `modules/**`. When you add a new YAML input that the root decodes, add it to **both** workflows
+> in the same commit.
 - AWS auth via **OIDC** — IAM role `github-okta-gitops` (account `756755582140`), no stored AWS keys
 - Secrets: `TF_VAR_API_TOKEN` · Variables: `TF_VAR_ORG_NAME`, `AWS_ROLE_ARN`
 
