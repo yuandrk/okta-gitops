@@ -19,6 +19,45 @@ Never hardcode secrets. Supply via:
 
 Variable names: `org_name`, `base_url`, `api_token` (declared in `variables.tf`).
 
+**Canonical source of the API token: 1Password — `op://homelab/okta-gitops/credential`** (vault
+`homelab`, alongside `okta-mcp`). Read it from there rather than copying it between machines.
+
+### The token expires — this will bite you
+
+**Okta SSWS tokens die after 30 days with no API calls.** Not 30 days since issue — 30 days of
+silence. A repo that goes quiet for a month comes back to a dead token.
+
+Symptom:
+
+```
+Error: [ERROR] failed validate configuration: error with v3 SDK client: 401 Unauthorized
+  with provider["registry.terraform.io/okta/okta"]
+```
+
+Confirm it's the token and not the config:
+
+```bash
+TOK=$(op read "op://homelab/okta-gitops/credential")
+curl -s -H "Authorization: SSWS $TOK" -H "Accept: application/json" \
+  "https://integrator-7752059.okta.com/api/v1/users/me" | jq -r '.errorSummary // "token OK"'
+# "Invalid token provided" (E0000011) ⇒ expired, not a config problem
+```
+
+Rotation touches **two** places. Doing only the first leaves CI broken until the next PR fails:
+
+```bash
+# 1. Admin Console → Security → API → Tokens → Create Token → save into 1Password
+# 2. local — rewrite api_token in terraform.tfvars from 1Password, never from clipboard history
+op read "op://homelab/okta-gitops/credential"
+# 3. CI
+op read "op://homelab/okta-gitops/credential" | gh secret set TF_VAR_API_TOKEN
+```
+
+> **MCP access does not depend on this token.** `okta-mcp-server` authenticates as the `C_mcp`
+> service app via `private_key_jwt`. So the MCP tools keep reading the org happily while Terraform
+> 401s — don't let a working `list_groups` convince you the credentials are fine. Two independent
+> auth paths; diagnose them separately.
+
 ## First-time setup
 
 ```bash
@@ -113,8 +152,20 @@ Rule expression reference: <https://developer.okta.com/docs/reference/okta-expre
 
 Not everything in the org belongs in Terraform. Left out **on purpose**:
 
-- **Built-in groups** (`Everyone`, `Okta Administrators`) and **system Okta apps** (Admin Console, Dashboard, Browser Plugin, Workflows, etc.) — managed by Okta itself.
+- **Built-in groups** (`Everyone`, `Okta Administrators`) and **system Okta apps** (Admin Console, Dashboard, Browser Plugin, Workflows, Access Certification Reviews, OIN Submission Tester, **Okta Personal App Migration**, etc.) — managed by Okta itself. Okta adds these over time without asking: `Okta Personal App Migration` (`okta_personal_app_migration`) appeared in the org on 2026-06-26. A new first-party app showing up is normal, not drift.
 - **`C_mcp`** — the service (machine-to-machine) OIDC app whose `private_key_jwt` credential the okta-mcp-server authenticates with. It uses **Okta-generated, auto-rotating signing keys** (`autoKeyRotation: true`, multiple ACTIVE/INACTIVE keys). Declaring its `jwks` in Terraform would fight Okta's rotation (perpetual drift) and an apply could overwrite the active key and break the MCP's own auth. It's also a bootstrap credential that rarely changes. So it stays in the Admin Console; its private key lives in 1Password (`op://`), never in code.
+
+## Inspecting live Okta & reconciling drift
+
+The `okta-mcp-server` MCP tools read the live org **read-only** — use them to diff what's actually in Okta against `groups.yaml` / `apps.yaml`. The `/okta-drift` skill (`.claude/skills/okta-drift`) automates this end to end; the manual steps it follows:
+
+1. **Read live state** (read-only MCP): `list_groups` and `list_applications` for the full inventory, `get_application` for one app's detail (e.g. oauth/jwks), `list_group_users` and `get_user_profile_attributes` for membership/schema.
+2. **Classify each resource:** managed in TF · **deliberately unmanaged** (the allowlist above — built-in groups, system Okta apps, `C_mcp`) · real drift.
+3. **Group *rules* are not exposed by any MCP tool** — their presence/absence and correctness are confirmed only via `terraform plan`, never MCP.
+4. **Adopt, don't recreate:** a resource that already exists in Okta must be brought into state with `terraform import '<address>' <okta-id>` **before** apply — otherwise apply fails trying to create a duplicate. After import, iterate the code until `terraform plan` is clean for that resource. Changing a `for_each` key / module / resource name re-keys state and forces destroy/recreate (see the State ↔ code note above).
+5. **AWS auth:** the S3 backend needs valid creds. If `aws sts get-caller-identity` errors with an expired session, run `aws login` before `terraform init` / `plan`.
+6. **Okta auth:** a `401 Unauthorized` from the provider means the SSWS token expired, not that the config is wrong — see "The token expires" under [Credentials](#credentials). Note that MCP steps 1–2 succeed regardless, since the MCP uses a different credential.
+7. **Never echo the token:** read it into a variable without printing it — `TOKEN=$(op read "op://homelab/okta-gitops/credential")` (fallback if 1Password is locked: `TOKEN=$(awk -F'"' '/api_token/{print $2}' terraform.tfvars)`) — then use `$TOKEN`. Don't paste the literal value into any command.
 
 ## State & lock file
 
@@ -138,10 +189,15 @@ Not everything in the org belongs in Terraform. Left out **on purpose**:
 - `repo:yuandrk/okta-gitops:pull_request` — PR runs (plan.yml)
 - `repo:yuandrk/okta-gitops:environment:*` — environment-gated runs (apply.yml uses `environment: prod`)
 
-## Plugins active in this project
+## Plugins & skills active in this project
 
 - `terraform-skill@antonbabenko` — Terraform best-practice guidance (naming, count vs for_each, testing, CI/CD)
-- `claude-md-management` — keep CLAUDE.md current; run `revise-claude-md` at session end
+- `claude-md-management@claude-plugins-official` — keep CLAUDE.md current; run `revise-claude-md` at session end
+- `.claude/skills/okta-drift` — project skill: diff live Okta against the YAML and report drift (see "Inspecting live Okta & reconciling drift" above). This is the **only** copy — an earlier duplicate under `.agents/skills/` was removed.
+
+**This file is the single source of truth for agent guidance.** `AGENTS.md` is a three-line pointer
+here and must stay that way — it was once a full copy of this file, produced by a `Claude`→`Codex`
+find-and-replace that mangled paths and plugin names. Don't re-sync the two; edit only `CLAUDE.md`.
 
 ## Key Okta concepts mapped to resources
 
