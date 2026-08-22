@@ -13,7 +13,11 @@ apps:
     post_logout_redirect_uris: ["https://headlamp.yuandrk.net"]
     refresh_token_leeway: 30
     consent_method: TRUSTED
-    issuer_mode: ORG_URL
+    # CUSTOM_URL: tokens/discovery use the custom domain (okta.yuandrk.net) so the OIDC
+    # flow stays on the same domain as the end-user dashboard session — enables silent SSO
+    # (no re-login per app). REQUIRES the k3s/Headlamp OIDC issuer to be https://okta.yuandrk.net
+    # too, or the `iss` claim won't validate. (was ORG_URL = integrator-7752059.okta.com)
+    issuer_mode: CUSTOM_URL
     hide_ios: true
     hide_web: false # visible on the Okta end-user dashboard
     # IdP-initiated login enabled (set manually in Admin Console; tracked here to match live)
