@@ -44,12 +44,15 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
 - Okta first-party / system apps → **deliberately unmanaged**. Identify by `name` (the app's internal name, not the label):
   `saasure` (Admin Console), `okta_enduser` (Dashboard), `okta_browser_plugin`,
   `okta_oin_submission_tester_app`, `okta_iga_reviewer` (Access Certification Reviews),
-  `okta_flow_sso` (Workflows), `flow` (Workflows OAuth),
-  `okta_personal_app_migration` (Okta Personal App Migration, appeared 2026-06-26).
-  This list is not closed — Okta provisions new first-party apps into the org over time. An app
-  whose `name` is an `okta_*` / Okta-internal identifier and that nobody added deliberately is
-  unmanaged-on-purpose, not drift; note it in the report and add it here.
+  `okta_flow_sso` (Workflows), `flow` (Workflows OAuth).
+  **Treat this list as a hint, not a roster.** Okta both adds and removes first-party apps on its
+  own — `okta_personal_app_migration` appeared 2026-06-26 and was gone by 2026-08-23. So classify
+  by the shape, not by the list: an app whose internal `name` is an `okta_*` / Okta-internal
+  identifier, which nobody here created, is unmanaged-on-purpose. Note it in the report; don't
+  flag it as drift, and don't bother adding it here.
 - label `C_mcp` (service app: `application_type == "service"`, `token_endpoint_auth_method == "private_key_jwt"`, `autoKeyRotation: true`) → **deliberately unmanaged**. Reason: Okta-generated auto-rotating keys would perpetually drift, and it's the okta-mcp-server's own bootstrap credential. See CLAUDE.md → "Deliberately unmanaged resources".
+- label `Hermes Dashboard` (`0oa16q11mp5oL7Brc698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE) and label `AI Harmess` (`0oa16pzy2koEUVYf1698`, INACTIVE) → **deliberately unmanaged**. See CLAUDE.md → "Deliberately unmanaged resources" for why Hermes can't be adopted as-is.
+  Note there was briefly a **second, abandoned** app also labelled `Hermes Dashboard` (`0oa16pzv08uDQV7Fy698`, `web` + client secret, `ORG_URL`) — superseded 2026-08-22 and deactivated. If two same-labelled apps ever show up again, match by **id**, not label, and check `~/.hermes/config.yaml` on k3s-master for the one actually in use.
 - label present in `apps.yaml` → **managed** ✅ (currently `Headlamp`)
 - any other `oidc_client` app not in `apps.yaml` → **DRIFT** ⚠️
 
