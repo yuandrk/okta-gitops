@@ -30,3 +30,18 @@ variable "group_ids" {
   description = "Map of group name to Okta group ID (from the identity module) — used to resolve group assignments by name."
   type        = map(string)
 }
+
+# Bookmark apps are plain dashboard tiles — a label and a URL, no OIDC, no secrets.
+# Used when an app can't get a tile of its own: Okta only offers IdP-initiated login
+# (and therefore a tile) to Web/SPA OIDC apps, so a `native` public client like the
+# Hermes dashboard is invisible on the end-user dashboard no matter how it's configured.
+# A bookmark sidesteps that without touching the real app's type or credentials.
+variable "bookmarks" {
+  description = "List of bookmark (link-only) apps. Each produces an okta_app_bookmark plus group assignments."
+  type = list(object({
+    label  = string
+    url    = string
+    groups = optional(list(string), [])
+  }))
+  default = []
+}

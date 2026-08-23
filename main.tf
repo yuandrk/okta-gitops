@@ -34,5 +34,6 @@ module "identity" {
 module "apps" {
   source    = "./modules/apps"
   apps      = local.apps.apps
+  bookmarks = try(local.apps.bookmarks, [])
   group_ids = module.identity.group_ids
 }
