@@ -16,6 +16,7 @@ on:
     paths:
       - "*.tf"
       - "groups.yaml"
+      - "apps.yaml"
       - "backend.hcl"
       - "modules/**"
 
