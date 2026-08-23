@@ -29,3 +29,15 @@ apps:
       name: "Headlamp Sign-On Policy"
       description: "Managed by Terraform — 1FA password only"
       rule_name: "Allow password"
+
+# Bookmark apps — dashboard tiles only, no OIDC and no credentials.
+#
+# Hermes needs one because Okta won't give a tile to its OIDC app: showing an app on the
+# end-user dashboard requires IdP-initiated login, which Okta offers only to Web and SPA
+# apps. The Hermes client is `native` (public client, PKCE, no secret), so it is invisible
+# there by construction — no setting changes that. A bookmark links to the same URL and
+# leaves the real app's type, client_id and host config untouched.
+bookmarks:
+  - label: Hermes
+    url: https://hermes.yuandrk.net
+    groups: ["Andriuk corp"] # mirrors the OIDC app's own assignment
