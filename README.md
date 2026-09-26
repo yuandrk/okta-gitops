@@ -9,7 +9,7 @@
 
 ## Why this exists
 
-1. **Real SSO for the homelab.** Signing in to [Headlamp](https://headlamp.dev/) (k3s dashboard) and the Hermes dashboard goes through Okta, and the Okta side lives here.
+1. **Real SSO for the homelab.** Signing in to the Hermes dashboard goes through Okta, and the Okta side lives here. (Headlamp, the k3s dashboard, used Okta too until it was retired on 2026-09-26.)
 2. **A rehearsal for Okta at work.** Patterns like import-before-apply, drift checks and the MCP-assisted admin get worked out here first, on a developer org where mistakes are cheap.
 3. **Learning and a portfolio.** Each resource is annotated with the Okta API call and Admin Console screen it maps to.
 
@@ -19,9 +19,7 @@ Org: `integrator-7752059.okta.com` (developer org), with custom domain `okta.yua
 
 | Thing | Managed by | Notes |
 | --- | --- | --- |
-| Group `homelab-admins` | Terraform | Rule `user.division == "IT"`. Gates Headlamp → k3s `cluster-admin` |
-| Group `Andriuk corp` | Terraform | Same rule. Gates the Hermes tile |
-| OIDC app `Headlamp` | Terraform | Web app, `issuer_mode: CUSTOM_URL`, sign-on policy: password + second factor, re-auth every 12h |
+| Group `Andriuk corp` | Terraform | Rule `user.division == "IT"`. Gates the Hermes tile |
 | Bookmark `Hermes` | Terraform | Dashboard tile → `https://hermes.yuandrk.net` |
 | OIDC app `Hermes Dashboard` | Admin Console | Native/PKCE public client. The module can't express it yet |
 | OIDC app `okta-mcp-browser` | Admin Console | Login for the okta-mcp-server (device code). Bootstrap credential |
@@ -35,23 +33,16 @@ Why things are split this way: [docs/design.md](docs/design.md).
 ```mermaid
 flowchart LR
     U[User in Okta<br/>division=IT] --> R[okta_group_rule]
-    R -->|auto-assign| G1[homelab-admins]
     R -->|auto-assign| G2[Andriuk corp]
-    G1 -->|assigned| A[Headlamp<br/>OIDC app]
     G2 -->|assigned| B[Hermes<br/>bookmark tile]
-    A -->|OIDC via okta.yuandrk.net<br/>+ groups claim| H[Headlamp → k3s RBAC]
     B -->|link| HD[hermes.yuandrk.net]
 
     subgraph TF["🟣 Terraform (this repo)"]
         R
-        G1
         G2
-        A
         B
     end
 ```
-
-The group name in the OIDC `groups` claim is the contract with the cluster. The `ClusterRoleBinding` that turns `homelab-admins` into `cluster-admin` lives in the separate homelab repo.
 
 ## Quick start
 

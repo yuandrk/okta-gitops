@@ -18,21 +18,12 @@ How group rules behave in Okta (Okta Expression Language, [reference](https://de
 - Memberships a rule assigned can't be removed by hand, because the rule adds them back. Manual memberships coexist with rule-based ones.
 - Attributes used in rules (`user.division`, `user.userType`, `user.department`, `user.title`, …) must exist on the user schema. The default user type already has the common ones.
 
-## The contract with the cluster is a group name
+## Headlamp (retired 2026-09-26)
 
-Headlamp signs users in via OIDC. The ID token carries a `groups` claim. The k3s API server reads it (`--oidc-groups-claim=groups`), and a `ClusterRoleBinding` in the **homelab repo** maps `homelab-admins` → `cluster-admin`.
+Headlamp (the k3s dashboard) was the first OIDC app here. The Okta app, its policy and the `homelab-admins` group were destroyed through Terraform when it was retired. Two lessons from it still apply to any app that feeds a cluster's RBAC:
 
-That means there are two independent gates:
-- The **app assignment** in `config/apps.yaml` decides who can sign in at all.
-- The **RBAC binding** in the homelab repo decides what they can do once signed in.
-
-The only thing shared between the two repos is the group name string. Renaming a group here silently breaks RBAC there.
-
-## Headlamp uses a custom-domain issuer
-
-`issuer_mode: CUSTOM_URL` means tokens and discovery are served from `okta.yuandrk.net`, the same domain as the end-user dashboard session. That makes SSO silent: no second login per app.
-
-The catch is that the Headlamp/k3s OIDC issuer must also be `https://okta.yuandrk.net`. Otherwise the `iss` claim won't validate. Changing `issuer_mode` is a change that touches two repos.
+- **The contract with the cluster is a group name.** The ID token's `groups` claim was read by the k3s API server (`--oidc-groups-claim=groups`), and a `ClusterRoleBinding` in the homelab repo mapped `homelab-admins` → `cluster-admin`. The app assignment decided who could sign in; the binding decided what they could do. Renaming a group here would silently break RBAC there.
+- **A custom-domain issuer is a two-repo change.** `issuer_mode: CUSTOM_URL` serves tokens from `okta.yuandrk.net`, the same domain as the dashboard session, so SSO is silent. But the relying party's issuer must match exactly, or the `iss` claim won't validate.
 
 ## Hermes OIDC app stays in the Console; a bookmark gives it a tile
 

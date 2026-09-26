@@ -31,7 +31,7 @@ curl -s -H "Authorization: SSWS $TOK" -H "Accept: application/json" \
 Users are not managed in Terraform.
 
 1. Go to Admin Console → **Directory → People → Add Person**.
-2. Set **Division**. `IT` is currently the only value any rule matches: it lands the user in `homelab-admins` and `Andriuk corp`.
+2. Set **Division**. `IT` is currently the only value any rule matches: it lands the user in `Andriuk corp`.
 3. Save. The group rules evaluate within seconds.
 4. Check in **Directory → Groups → \<group\> → People**.
 
@@ -69,7 +69,7 @@ Add an entry to `config/apps.yaml`. Only `name`, `redirect_uris`, `signon_policy
   login_mode: SPEC
   login_scopes: ["openid"]
   login_uri: "https://grafana.yuandrk.net"
-  groups: ["homelab-admins"]
+  groups: ["Andriuk corp"]
   signon_policy:
     name: "Grafana Sign-On Policy"
     description: "Managed by Terraform — password + second factor"

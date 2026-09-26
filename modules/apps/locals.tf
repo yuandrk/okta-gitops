@@ -1,8 +1,8 @@
 locals {
-  # OIDC apps keyed by name — for_each keys are state addresses, e.g. "Headlamp".
+  # OIDC apps keyed by name — for_each keys are state addresses, e.g. "Grafana".
   apps_by_name = { for a in var.apps : a.name => a }
 
-  # One assignment per app×group pair, keyed "App:Group" — e.g. "Headlamp:homelab-admins".
+  # One assignment per app×group pair, keyed "App:Group" — e.g. "Grafana:Andriuk corp".
   app_group_pairs = merge([
     for a in var.apps : {
       for g in a.groups : "${a.name}:${g}" => { app = a.name, group = g }

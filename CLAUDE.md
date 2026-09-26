@@ -4,7 +4,7 @@ Guidance for AI agents working in this repo. Humans: start at [README.md](README
 
 ## Purpose
 
-Okta as the SSO for the homelab (Headlamp, Hermes), managed with the [okta/okta](https://registry.terraform.io/providers/okta/okta/latest/docs) provider (`~> 7.0`). The repo is also a rehearsal ground for an Okta rollout at work, and a learning/portfolio project. Keep the per-resource comments that map each block to its Okta API call and Admin Console screen.
+Okta as the SSO for the homelab (Hermes; Headlamp was retired 2026-09-26), managed with the [okta/okta](https://registry.terraform.io/providers/okta/okta/latest/docs) provider (`~> 7.0`). The repo is also a rehearsal ground for an Okta rollout at work, and a learning/portfolio project. Keep the per-resource comments that map each block to its Okta API call and Admin Console screen.
 
 - What's in the org and who manages it: [README → What's in the org](README.md#whats-in-the-org)
 - Why things are done this way: [docs/design.md](docs/design.md)
@@ -80,6 +80,7 @@ Use the `/okta-drift` skill (`.claude/skills/okta-drift`). It runs these steps:
 - **`plan.yml` has no `paths:` filter on purpose.** `plan` is a required check; with a filter, a docs-only PR never gets it and stays BLOCKED forever (happened to PR #12). Don't add one back.
 - **`apply.yml`'s `paths:` filter must list every input** (`*.tf`, `config/**`, `backend.hcl`, `modules/**`). A merge touching only unlisted files runs no apply. `apps.yaml` was missing until 2026-08-22. Keep new YAML inputs under `config/` so they're covered.
 - `plan.yml` fails the job if fmt, tflint, module tests or plan fail. Each step uses `continue-on-error` so the PR comment still gets posted, and a final step checks every outcome.
+- **Never put `${{ steps.*.outputs.* }}` inside a script body** (github-script or `run:`). Pass it through `env:`. Plan text contains `${source.login}`, which the JS template literal evaluated, failing `plan` on PR #17.
 - The IAM role trust must include `repo:yuandrk/okta-gitops:ref:refs/heads/main`, `:pull_request` and `:environment:*`.
 
 ## Docs hygiene
