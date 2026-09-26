@@ -1,12 +1,3 @@
-terraform {
-  required_providers {
-    okta = {
-      source  = "okta/okta"
-      version = "~> 6.0"
-    }
-  }
-}
-
 # Admin Console equivalent: Directory → Groups → Add Group
 # Okta API: POST /api/v1/groups
 resource "okta_group" "groups" {

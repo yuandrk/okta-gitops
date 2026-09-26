@@ -15,8 +15,7 @@ on:
     branches: [main]
     paths:
       - "*.tf"
-      - "groups.yaml"
-      - "apps.yaml"
+      - "config/**"
       - "backend.hcl"
       - "modules/**"
 

@@ -42,7 +42,7 @@ If the user didn't land in a group:
 
 ### Add a group or change a rule
 
-Edit `groups.yaml`:
+Edit `config/groups.yaml`:
 
 ```yaml
 - name: homelab-viewers
@@ -56,7 +56,7 @@ To change an existing rule expression, the provider deactivates the rule, update
 
 ### Add an OIDC app
 
-Add an entry to `apps.yaml`. Only `name`, `redirect_uris` and `signon_policy.name` are required. Everything else has defaults in `modules/apps/variables.tf`.
+Add an entry to `config/apps.yaml`. Only `name`, `redirect_uris`, `signon_policy.name` and `signon_policy.description` are required. Everything else has defaults in `modules/apps/variables.tf`, and validation there catches bad enum values and group names that aren't in `groups.yaml`.
 
 ```yaml
 - name: Grafana
@@ -96,6 +96,18 @@ bookmarks:
     url: https://grafana.yuandrk.net
     groups: ["Andriuk corp"]
 ```
+
+### Check the code locally (what CI runs)
+
+```bash
+terraform fmt -check -recursive
+terraform validate
+tflint --init && tflint --recursive --config "$PWD/.tflint.hcl"
+for m in modules/*/; do terraform -chdir="$m" init -backend=false >/dev/null && terraform -chdir="$m" test; done
+terraform-docs modules/identity && terraform-docs modules/apps   # refresh module READMEs after changing variables/outputs
+```
+
+The module tests use a mocked provider, so they need no token and make no Okta calls.
 
 ### Check for drift
 
@@ -172,4 +184,4 @@ terraform plan   # see how far live Okta has moved from the restored state
 ### Stop a rule from assigning users right now
 
 1. **Stopgap:** Admin Console → Directory → Groups → Rules → deactivate the rule. The next apply turns it back on.
-2. **Proper fix:** remove the `rule:` line from `groups.yaml` (keeps the group), or remove the whole entry. Then open a PR and apply.
+2. **Proper fix:** remove the `rule:` line from `config/groups.yaml` (keeps the group), or remove the whole entry. Then open a PR and apply.
