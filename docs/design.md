@@ -23,7 +23,7 @@ How group rules behave in Okta (Okta Expression Language, [reference](https://de
 Headlamp signs users in via OIDC. The ID token carries a `groups` claim. The k3s API server reads it (`--oidc-groups-claim=groups`), and a `ClusterRoleBinding` in the **homelab repo** maps `homelab-admins` → `cluster-admin`.
 
 That means there are two independent gates:
-- The **app assignment** in `apps.yaml` decides who can sign in at all.
+- The **app assignment** in `config/apps.yaml` decides who can sign in at all.
 - The **RBAC binding** in the homelab repo decides what they can do once signed in.
 
 The only thing shared between the two repos is the group name string. Renaming a group here silently breaks RBAC there.
@@ -48,6 +48,17 @@ Okta gives dashboard tiles only to Web/SPA apps with IdP-initiated login. A nati
 - Its scopes include `okta.*.manage`. "The MCP is read-only" is a convention here, not an enforced limit.
 - Until 2026-09-25 this was `C_mcp`, a service app with a `private_key_jwt` key in 1Password. It was deleted. User-delegated auth needs no stored key at all.
 
+## Code layout
+
+The layout follows HashiCorp's [standard module structure](https://developer.hashicorp.com/terraform/language/modules/develop/structure) and [terraform-best-practices.com](https://www.terraform-best-practices.com/):
+
+- **One concern per file.** `versions.tf` (Terraform/provider constraints, backend), `providers.tf`, `locals.tf` (YAML decoding), `main.tf` (module calls only). Inside `modules/apps`, OIDC apps and bookmarks live in `oidc.tf` and `bookmarks.tf`.
+- **Data apart from code.** Everything you edit day to day is in `config/`. The `.tf` files change only when the *shape* of what's managed changes.
+- **Version constraints:** the root pins `okta ~> 6.0` and commits `.terraform.lock.hcl`; modules only declare a floor (`>= 6.0`), so they don't block a future provider upgrade.
+- **Fail at plan time, with a readable message.** Variable validation rejects unknown group names, bad enum values and duplicate keys before Okta sees anything. Before this, a typo in a group name produced a bare "Invalid index".
+- **Tests without an org.** `terraform test` with `mock_provider "okta"` checks the `for_each` key shapes (state addresses) and the validations. On the first run it found a real bug: `signon_policy.description` was optional in the module but required by the provider.
+- **Names are state.** Resource and module names (`module.identity`, `okta_group.groups`, `okta_app_oauth.oidc`…) predate these conventions and are kept on purpose. Renaming them would need `moved` blocks for no functional gain.
+
 ## One Terraform root, no dev/prod
 
 There is one org and one person. A second environment would add a second state, IAM trust scope and org noise, without adding safety. The modules are kept separate so an environment split stays cheap if it's ever needed.
@@ -65,12 +76,12 @@ Group names, rule expressions and app settings are not secrets. Plain YAML makes
 
 ## CI: plan on PR, gated apply on main
 
-- `plan.yml` runs on each PR: fmt → init → validate → plan, and posts the plan as a PR comment. Branch protection requires the `plan` check and an up-to-date branch.
+- `plan.yml` runs on each PR: fmt → init → validate → tflint → module tests → plan, and posts the plan as a PR comment. Branch protection requires the `plan` check and an up-to-date branch.
 - `apply.yml` runs on push to `main`: the `prod` GitHub Environment waits for manual approval, then runs `apply -auto-approve`.
 - AWS access uses GitHub OIDC → IAM role `github-okta-gitops` (account `756755582140`). No static keys are stored. The trust policy must allow `ref:refs/heads/main`, `pull_request` and `environment:*`.
 - Secret `TF_VAR_API_TOKEN`. Variables `TF_VAR_ORG_NAME` and `AWS_ROLE_ARN`.
 - `plan.yml` runs on **every** PR, with no `paths:` filter. A required check that a path filter skips never reports, so the PR can't merge. Plan is cheap and read-only, so it always runs.
-- `apply.yml` filters on `paths:`, so docs-only merges don't ask for an approval. **Every file the root reads must be listed there.** `apps.yaml` was missing until 2026-08-22, so apps-only changes skipped CI without any error.
+- `apply.yml` filters on `paths:`, so docs-only merges don't ask for an approval. **Every file the root reads must be listed there.** `apps.yaml` was missing until 2026-08-22, so apps-only changes skipped CI without any error. The YAML now lives under `config/**`, so a new config file is covered automatically.
 
 ---
 

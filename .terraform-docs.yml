@@ -1,0 +1,18 @@
+# terraform-docs modules/identity && terraform-docs modules/apps
+formatter: markdown table
+
+output:
+  file: README.md
+  mode: inject
+
+sort:
+  enabled: true
+  by: required
+
+settings:
+  anchor: false
+  hide-empty: true
+
+# The provider version resolved in a module dir is whatever `init` picked last — noise.
+sections:
+  hide: [providers]

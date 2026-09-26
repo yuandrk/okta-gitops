@@ -66,17 +66,20 @@ terraform plan                              # expect: No changes
 
 ## Making a change
 
-Edit `groups.yaml` or `apps.yaml`, then open a PR. CI posts the `terraform plan` as a comment. After the merge, the apply waits for manual approval in the `prod` environment. Recipes are in the [runbook](docs/runbook.md).
+Edit `config/groups.yaml` or `config/apps.yaml`, then open a PR. CI runs fmt, validate, tflint and the module tests, and posts the `terraform plan` as a comment. After the merge, the apply waits for manual approval in the `prod` environment. Recipes are in the [runbook](docs/runbook.md).
 
 ```text
 okta-gitops/
-├── main.tf · variables.tf · outputs.tf   # provider, S3 backend, module calls
-├── groups.yaml                           # groups + group rules
-├── apps.yaml                             # OIDC apps + bookmark tiles
+├── versions.tf · providers.tf            # Terraform/provider versions, S3 backend, okta provider
+├── locals.tf · main.tf                   # decode config/*.yaml → module calls
+├── variables.tf · outputs.tf
 ├── backend.hcl                           # S3 backend config
-└── modules/
-    ├── identity/   # okta_group, okta_group_rule
-    └── apps/       # okta_app_oauth (+ sign-on policy/rule), okta_app_bookmark, group assignments
+├── config/
+│   ├── groups.yaml                       # groups + group rules
+│   └── apps.yaml                         # OIDC apps + bookmark tiles
+└── modules/                              # each: versions · variables · outputs · README · tests/
+    ├── identity/   # main.tf: okta_group, okta_group_rule
+    └── apps/       # oidc.tf: okta_app_oauth (+ sign-on policy/rule); bookmarks.tf: okta_app_bookmark; group assignments
 ```
 
 > **Two independent credentials.** Terraform uses an SSWS API token, which dies after 30 days without use. The okta-mcp-server uses its own device-code login. One can work while the other is dead, so check them separately.

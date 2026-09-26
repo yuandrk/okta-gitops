@@ -8,7 +8,9 @@ terraform.tfvars
 
 # Terraform working directory — downloaded providers and modules
 .terraform/
-# .terraform.lock.hcl is intentionally NOT ignored — commit it to pin provider versions
+# The root .terraform.lock.hcl is intentionally NOT ignored — commit it to pin provider versions.
+# Module dirs get their own lock file only from `init -backend=false` for `terraform test`.
+modules/*/.terraform.lock.hcl
 
 # Crash logs
 crash.log

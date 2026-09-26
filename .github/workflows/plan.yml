@@ -49,6 +49,25 @@ jobs:
         id: validate
         run: terraform validate
 
+      - uses: terraform-linters/setup-tflint@v4
+
+      - name: TFLint
+        id: tflint
+        run: |
+          tflint --init
+          tflint --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl"
+        continue-on-error: true
+
+      # Module unit tests — mock provider, no Okta calls.
+      - name: Terraform test
+        id: test
+        run: |
+          for m in modules/*/; do
+            terraform -chdir="$m" init -backend=false -input=false
+            terraform -chdir="$m" test -no-color
+          done
+        continue-on-error: true
+
       - name: Terraform plan
         id: plan
         run: terraform plan -no-color
@@ -65,6 +84,8 @@ jobs:
               `#### Fmt 🖌 \`${{ steps.fmt.outcome }}\``,
               `#### Init ⚙️ \`${{ steps.init.outcome }}\``,
               `#### Validate 🤖 \`${{ steps.validate.outcome }}\``,
+              `#### TFLint 🔍 \`${{ steps.tflint.outcome }}\``,
+              `#### Test 🧪 \`${{ steps.test.outcome }}\``,
               `#### Plan 📖 \`${{ steps.plan.outcome }}\``,
               `<details><summary>Show Plan</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n</details>`,
               `*triggered by @${{ github.actor }}*`,
@@ -76,6 +97,6 @@ jobs:
               body,
             });
 
-      - name: Fail if plan failed
-        if: steps.plan.outcome == 'failure'
+      - name: Fail if any check failed
+        if: steps.fmt.outcome == 'failure' || steps.tflint.outcome == 'failure' || steps.test.outcome == 'failure' || steps.plan.outcome == 'failure'
         run: exit 1

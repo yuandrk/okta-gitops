@@ -5,4 +5,9 @@ variable "groups" {
     description = string
     rule        = optional(string)
   }))
+
+  validation {
+    condition     = length(distinct([for g in var.groups : g.name])) == length(var.groups)
+    error_message = "Group names must be unique — the name is the for_each key (state address)."
+  }
 }

@@ -1,6 +1,6 @@
 ---
 name: okta-drift
-description: Diff the live Okta org against this repo's Terraform (groups.yaml / apps.yaml) and report drift. Use when asked to "check Okta vs Terraform", "drift check", "reconcile", "what's in Okta that isn't in code", or before starting reconcile work. Read-only by default — proposes import-before-apply for real drift, never applies on its own.
+description: Diff the live Okta org against this repo's Terraform (config/groups.yaml / config/apps.yaml) and report drift. Use when asked to "check Okta vs Terraform", "drift check", "reconcile", "what's in Okta that isn't in code", or before starting reconcile work. Read-only by default — proposes import-before-apply for real drift, never applies on its own.
 ---
 
 # okta-drift — live Okta ↔ Terraform reconciliation
@@ -28,17 +28,17 @@ unmanaged**, **drift**. This is a read-only diagnostic — it makes no Okta or s
 
 ### 2. Read the code
 
-Compare against the YAML the Terraform root decodes (read the **current branch**, or `git show origin/main:groups.yaml` for the deployed truth):
+Compare against the YAML the Terraform root decodes (read the **current branch**, or `git show origin/main:config/groups.yaml` for the deployed truth):
 
-- `groups.yaml` → `okta_group` + `okta_group_rule` (managed group names)
-- `apps.yaml` → `okta_app_oauth` + signon policy/rule + group assignment (managed app labels)
+- `config/groups.yaml` → `okta_group` + `okta_group_rule` (managed group names)
+- `config/apps.yaml` → `okta_app_oauth` + signon policy/rule + group assignment (managed app labels)
 
 ### 3. Classify every live resource
 
 **Groups**
 - `type == "BUILT_IN"` → **deliberately unmanaged** (Okta-owned). Current: `Everyone`, `Okta Administrators`.
-- name present in `groups.yaml` → **managed** ✅
-- `OKTA_GROUP` **not** in `groups.yaml` → **DRIFT** ⚠️ (created in the Console, not in code)
+- name present in `config/groups.yaml` → **managed** ✅
+- `OKTA_GROUP` **not** in `config/groups.yaml` → **DRIFT** ⚠️ (created in the Console, not in code)
 
 **Apps**
 - Okta first-party / system apps → **deliberately unmanaged**. Identify by `name` (the app's internal name, not the label):
@@ -53,8 +53,8 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
 - label `okta-mcp-browser` (`0oa181pcu93mzNgKr698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE, `device_code` grant) → **deliberately unmanaged**. It's the okta-mcp-server's own client (user-delegated device-code login); an apply that breaks it would break the MCP. See CLAUDE.md → "Deliberately unmanaged: not drift". (It replaced the `C_mcp` service app on 2026-09-25; `C_mcp` was deleted — if it reappears, it's drift.)
 - label `Hermes Dashboard` (`0oa16q11mp5oL7Brc698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE) and label `AI Harmess` (`0oa16pzy2koEUVYf1698`, INACTIVE) → **deliberately unmanaged**. See CLAUDE.md → "Deliberately unmanaged: not drift" for why Hermes can't be adopted as-is.
   Note there was briefly a **second, abandoned** app also labelled `Hermes Dashboard` (`0oa16pzv08uDQV7Fy698`, `web` + client secret, `ORG_URL`) — superseded 2026-08-22 and deactivated. If two same-labelled apps ever show up again, match by **id**, not label, and check `~/.hermes/config.yaml` on k3s-master for the one actually in use.
-- label present in `apps.yaml` → **managed** ✅ (currently `Headlamp`)
-- any other `oidc_client` app not in `apps.yaml` → **DRIFT** ⚠️
+- label present in `config/apps.yaml` → **managed** ✅ (currently `Headlamp`)
+- any other `oidc_client` app not in `config/apps.yaml` → **DRIFT** ⚠️
 
 ### 4. Group rules & state-level cleanliness → `terraform plan`
 
@@ -68,7 +68,7 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
   ```
   Error: [ERROR] failed validate configuration: error with v3 SDK client: 401 Unauthorized
   ```
-  SSWS tokens die after 30 days without API calls. Do **not** start debugging `main.tf` or the
+  SSWS tokens die after 30 days without API calls. Do **not** start debugging the `.tf` files or the
   variables — send the user to `docs/runbook.md` → "Rotate the Okta API token", which covers
   rotating it in both `terraform.tfvars` and the `TF_VAR_API_TOKEN` GitHub secret.
   This is easy to misread from inside this skill: steps 1–3 above will have just succeeded,
@@ -84,6 +84,6 @@ Emit one compact table — Resource · Type · In TF? · Verdict (✅ managed / 
 
 Per the repo workflow rule, **never apply automatically**. For each ⚠️ drift item recommend the safe adoption path and let the user decide:
 
-1. Add the resource to `groups.yaml` / `apps.yaml` (or decide to leave it unmanaged and document why).
+1. Add the resource to `config/groups.yaml` / `config/apps.yaml` (or decide to leave it unmanaged and document why).
 2. `terraform import '<address>' <okta-id>` to adopt the existing object **before** apply — otherwise apply fails creating a duplicate. Addresses look like `module.identity.okta_group.groups["<name>"]` and `module.apps.okta_app_oauth.oidc["<label>"]`.
 3. Iterate the code until `terraform plan` is clean for that resource, show the plan, then apply only after the user confirms.

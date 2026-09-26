@@ -1,24 +1,3 @@
-terraform {
-  required_providers {
-    okta = {
-      source  = "okta/okta"
-      version = "~> 6.0"
-    }
-  }
-}
-
-locals {
-  # apps keyed by name — for_each keys must match state, e.g. "Headlamp"
-  apps_by_name = { for a in var.apps : a.name => a }
-
-  # one assignment per app×group pair, keyed "App:Group" — matches state, e.g. "Headlamp:IT-Admins"
-  app_group_pairs = merge([
-    for a in var.apps : {
-      for g in a.groups : "${a.name}:${g}" => { app = a.name, group = g }
-    }
-  ]...)
-}
-
 # Admin Console: Applications → Create App Integration → OIDC → Web
 # Okta API: POST /api/v1/apps  (signOnMode OPENID_CONNECT)
 resource "okta_app_oauth" "oidc" {
@@ -78,36 +57,5 @@ resource "okta_app_group_assignment" "oidc" {
   for_each = local.app_group_pairs
 
   app_id   = okta_app_oauth.oidc[each.value.app].id
-  group_id = var.group_ids[each.value.group]
-}
-
-locals {
-  bookmarks_by_label = { for b in var.bookmarks : b.label => b }
-
-  bookmark_group_pairs = merge([
-    for b in var.bookmarks : {
-      for g in b.groups : "${b.label}:${g}" => { app = b.label, group = g }
-    }
-  ]...)
-}
-
-# Admin Console: Applications → Browse App Catalog → Bookmark App
-# Okta API: POST /api/v1/apps  (signOnMode BOOKMARK, name "bookmark")
-resource "okta_app_bookmark" "link" {
-  for_each = local.bookmarks_by_label
-
-  label = each.value.label
-  url   = each.value.url
-
-  # Visible on the end-user dashboard — that's the whole point of a bookmark.
-  hide_ios = true
-  hide_web = false
-}
-
-# Same Okta API as the OIDC assignment: PUT /api/v1/apps/{appId}/groups/{groupId}
-resource "okta_app_group_assignment" "bookmark" {
-  for_each = local.bookmark_group_pairs
-
-  app_id   = okta_app_bookmark.link[each.value.app].id
   group_id = var.group_ids[each.value.group]
 }
