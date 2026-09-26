@@ -21,7 +21,12 @@ variable "apps" {
     signon_policy = object({
       name        = string
       description = string # required by okta_app_signon_policy
-      rule_name   = optional(string, "Allow password")
+      rule_name   = optional(string, "Require MFA")
+      # 2FA = password + a second factor (Okta Verify, TOTP, …). Secure by default;
+      # set "1FA" only for apps where a password alone is acceptable.
+      factor_mode = optional(string, "2FA")
+      # How long a sign-in is trusted before Okta asks again (ISO-8601 duration).
+      re_authentication_frequency = optional(string, "PT12H")
     })
   }))
 
@@ -43,6 +48,16 @@ variable "apps" {
   validation {
     condition     = alltrue([for a in var.apps : contains(["DISABLED", "SPEC", "OKTA"], a.login_mode)])
     error_message = "login_mode must be one of: DISABLED, SPEC, OKTA."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.apps : contains(["1FA", "2FA"], a.signon_policy.factor_mode)])
+    error_message = "signon_policy.factor_mode must be one of: 1FA, 2FA."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.apps : can(regex("^PT[0-9]+[HM]$", a.signon_policy.re_authentication_frequency))])
+    error_message = "signon_policy.re_authentication_frequency must be an ISO-8601 duration in hours or minutes, e.g. PT12H or PT30M."
   }
 
   validation {

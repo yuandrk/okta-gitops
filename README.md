@@ -21,7 +21,7 @@ Org: `integrator-7752059.okta.com` (developer org), with custom domain `okta.yua
 | --- | --- | --- |
 | Group `homelab-admins` | Terraform | Rule `user.division == "IT"`. Gates Headlamp → k3s `cluster-admin` |
 | Group `Andriuk corp` | Terraform | Same rule. Gates the Hermes tile |
-| OIDC app `Headlamp` | Terraform | Web app, `issuer_mode: CUSTOM_URL`, sign-on policy "password only" |
+| OIDC app `Headlamp` | Terraform | Web app, `issuer_mode: CUSTOM_URL`, sign-on policy: password + second factor, re-auth every 12h |
 | Bookmark `Hermes` | Terraform | Dashboard tile → `https://hermes.yuandrk.net` |
 | OIDC app `Hermes Dashboard` | Admin Console | Native/PKCE public client. The module can't express it yet |
 | OIDC app `okta-mcp-browser` | Admin Console | Login for the okta-mcp-server (device code). Bootstrap credential |
