@@ -76,8 +76,13 @@ jobs:
           TF_VAR_api_token: ${{ secrets.TF_VAR_API_TOKEN }}
         continue-on-error: true
 
+      # The plan goes in through env, not ${{ }} inside the script: plan text can contain
+      # `${...}` (e.g. user_name_template = "${source.login}"), which a JS template
+      # literal would evaluate. That crashed this step once and is a script-injection hole.
       - name: Post plan comment
         uses: actions/github-script@v7
+        env:
+          PLAN: ${{ steps.plan.outputs.stdout }}
         with:
           script: |
             const body = [
@@ -87,7 +92,7 @@ jobs:
               `#### TFLint 🔍 \`${{ steps.tflint.outcome }}\``,
               `#### Test 🧪 \`${{ steps.test.outcome }}\``,
               `#### Plan 📖 \`${{ steps.plan.outcome }}\``,
-              `<details><summary>Show Plan</summary>\n\n\`\`\`\n${{ steps.plan.outputs.stdout }}\n\`\`\`\n</details>`,
+              `<details><summary>Show Plan</summary>\n\n\`\`\`\n${process.env.PLAN}\n\`\`\`\n</details>`,
               `*triggered by @${{ github.actor }}*`,
             ].join('\n\n');
             github.rest.issues.createComment({
