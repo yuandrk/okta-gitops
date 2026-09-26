@@ -47,6 +47,29 @@ run "oidc_app_gets_policy_and_one_assignment_per_group" {
   }
 }
 
+run "signon_rule_defaults_to_mfa" {
+  command = plan
+
+  assert {
+    condition     = okta_app_signon_policy_rule.allow_password["Grafana"].factor_mode == "2FA" && okta_app_signon_policy_rule.allow_password["Grafana"].re_authentication_frequency == "PT12H"
+    error_message = "An app that doesn't set factor_mode must get 2FA with a 12h re-auth."
+  }
+}
+
+run "invalid_factor_mode_is_rejected" {
+  command = plan
+
+  variables {
+    apps = [{
+      name          = "Grafana"
+      redirect_uris = ["https://grafana.example.com/callback"]
+      signon_policy = { name = "p", description = "d", factor_mode = "MFA" }
+    }]
+  }
+
+  expect_failures = [var.apps]
+}
+
 run "bookmark_gets_its_own_assignment" {
   command = plan
 

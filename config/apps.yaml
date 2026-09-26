@@ -25,10 +25,15 @@ apps:
     login_scopes: ["openid"]
     login_uri: "https://headlamp.yuandrk.net"
     groups: ["homelab-admins"] # who may sign in to Headlamp
+    # Headlamp = cluster-admin on k3s, so a password alone isn't enough.
+    # Both homelab-admins members have Okta Verify + TOTP enrolled (checked 2026-09-26);
+    # a new member must enroll a second factor before they can sign in.
     signon_policy:
       name: "Headlamp Sign-On Policy"
-      description: "Managed by Terraform — 1FA password only"
-      rule_name: "Allow password"
+      description: "Managed by Terraform — password + second factor, re-auth every 12h"
+      rule_name: "Require MFA"
+      factor_mode: "2FA"
+      re_authentication_frequency: "PT12H"
 
 # Bookmark apps — dashboard tiles only, no OIDC and no credentials.
 #

@@ -38,6 +38,8 @@ resource "okta_app_signon_policy" "oidc" {
 }
 
 # Admin Console: the policy's rule. Okta API: POST /api/v1/policies/{id}/rules
+# The resource name `allow_password` predates MFA support. It's a state address,
+# so it stays; the rule's behaviour comes from signon_policy.factor_mode.
 resource "okta_app_signon_policy_rule" "allow_password" {
   for_each = local.apps_by_name
 
@@ -45,9 +47,9 @@ resource "okta_app_signon_policy_rule" "allow_password" {
   name      = each.value.signon_policy.rule_name
 
   access                      = "ALLOW"
-  factor_mode                 = "1FA"
+  factor_mode                 = each.value.signon_policy.factor_mode
   network_connection          = "ANYWHERE"
-  re_authentication_frequency = "PT43800H"
+  re_authentication_frequency = each.value.signon_policy.re_authentication_frequency
   priority                    = 1
 }
 

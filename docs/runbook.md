@@ -72,7 +72,9 @@ Add an entry to `config/apps.yaml`. Only `name`, `redirect_uris`, `signon_policy
   groups: ["homelab-admins"]
   signon_policy:
     name: "Grafana Sign-On Policy"
-    description: "Managed by Terraform — 1FA password only"
+    description: "Managed by Terraform — password + second factor"
+    # factor_mode defaults to 2FA with a 12h re-auth (re_authentication_frequency: PT12H).
+    # Everyone assigned must have a second factor enrolled, or they can't sign in.
 ```
 
 After the apply, read the client credentials and use them to configure the app:
