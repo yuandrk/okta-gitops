@@ -25,7 +25,6 @@ Org: `integrator-7752059.okta.com` (developer org), with custom domain `okta.yua
 | Bookmark `Hermes` | Terraform | Dashboard tile → `https://hermes.yuandrk.net` |
 | OIDC app `Hermes Dashboard` | Admin Console | Native/PKCE public client. The module can't express it yet |
 | OIDC app `okta-mcp-browser` | Admin Console | Login for the okta-mcp-server (device code). Bootstrap credential |
-| `AI Harmess`, an old inactive `Hermes Dashboard` | Admin Console | Inactive leftovers and experiments |
 | Built-in groups, `okta_*` system apps | Okta | Okta adds and removes these on its own |
 | **Users** | Admin Console | Never in Terraform. Group rules sort them into groups |
 

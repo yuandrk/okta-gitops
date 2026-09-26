@@ -61,9 +61,8 @@ State is at `s3://terraform-state-homelab-yuandrk/prod/terraform.tfstate` (eu-we
 
 - **Built-in groups** (`Everyone`, `Okta Administrators`) and **Okta system apps**. Classify system apps by their internal `name` (`okta_*`, `saasure`, `flow`, …), not by a roster: Okta adds and removes them on its own. Example: `okta_personal_app_migration` appeared and disappeared in summer 2026.
 - **`Hermes Dashboard`** `0oa16q11mp5oL7Brc698`: a public native client (`token_endpoint_auth_method: none`, PKCE, CUSTOM_URL). `modules/apps` can't express it, and applying it would fight the live config. Its tile comes from the TF bookmark `Hermes`. Client config: `~/.hermes/config.yaml` (`dashboard.oauth.self_hosted`) and `op://homelab/hermes-dashboard-oidc`.
-- **`Hermes Dashboard`** `0oa16pzv08uDQV7Fy698` (INACTIVE, web, ORG_URL): an abandoned first attempt. It has the same label as the live app, so **match by id, not label**.
-- **`AI Harmess`** `0oa16pzy2koEUVYf1698`: an inactive experiment.
-- **`okta-mcp-browser`** `0oa181pcu93mzNgKr698`: the MCP's own login, a bootstrap credential. An apply that breaks it breaks the MCP. It replaced the `C_mcp` service app on 2026-09-25. `C_mcp` (`0oa146h4n3xbeQS7j698`) was deleted, so if it reappears that **is** drift.
+- **`okta-mcp-browser`** `0oa181pcu93mzNgKr698`: the MCP's own login, a bootstrap credential. An apply that breaks it breaks the MCP. It replaced the `C_mcp` service app on 2026-09-25.
+- **Deleted, so drift if they reappear:** `C_mcp` `0oa146h4n3xbeQS7j698` (2026-09-25), and the inactive leftovers `Hermes Dashboard` `0oa16pzv08uDQV7Fy698` (web, abandoned first attempt) and `AI Harmess` `0oa16pzy2koEUVYf1698` (2026-09-26).
 
 ## Drift reconciliation
 
@@ -77,7 +76,7 @@ Use the `/okta-drift` skill (`.claude/skills/okta-drift`). It runs these steps:
 
 ## CI traps
 
-- `plan.yml` runs on PRs and posts the plan as a comment. The `plan` check is required. `apply.yml` runs on push to `main`, behind the `prod` environment approval.
+- `plan.yml` runs on PRs and posts the plan as a comment. The `plan` check is required. `apply.yml` runs on push to `main`, behind the `prod` environment approval. `drift.yml` is manual only (`workflow_dispatch`, no schedule by the user's choice): read-only plan, fails on drift or error.
 - **`plan.yml` has no `paths:` filter on purpose.** `plan` is a required check; with a filter, a docs-only PR never gets it and stays BLOCKED forever (happened to PR #12). Don't add one back.
 - **`apply.yml`'s `paths:` filter must list every input** (`*.tf`, `config/**`, `backend.hcl`, `modules/**`). A merge touching only unlisted files runs no apply. `apps.yaml` was missing until 2026-08-22. Keep new YAML inputs under `config/` so they're covered.
 - `plan.yml` fails the job if fmt, tflint, module tests or plan fail. Each step uses `continue-on-error` so the PR comment still gets posted, and a final step checks every outcome.

@@ -114,6 +114,7 @@ The module tests use a mocked provider, so they need no token and make no Okta c
 Drift is anything changed in the Admin Console that the code doesn't know about.
 
 - **Quick way:** in Claude Code, run `/okta-drift`. It compares the live inventory (via MCP) against the YAML and runs `terraform plan`.
+- **From CI:** Actions → *Terraform Drift* → *Run workflow*, or `gh workflow run drift.yml`. It runs the plan only, and the result is in the run summary. Green means no drift.
 - **By hand:**
   1. List groups and apps with the MCP tools, or in the Admin Console.
   2. Sort each one into one of three buckets: in YAML, deliberately in the Console (see the [README](../README.md#whats-in-the-org)), or drift.

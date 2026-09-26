@@ -44,15 +44,15 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
 - Okta first-party / system apps → **deliberately unmanaged**. Identify by `name` (the app's internal name, not the label):
   `saasure` (Admin Console), `okta_enduser` (Dashboard), `okta_browser_plugin`,
   `okta_oin_submission_tester_app`, `okta_iga_reviewer` (Access Certification Reviews),
-  `okta_flow_sso` (Workflows), `flow` (Workflows OAuth).
+  `okta_flow_sso` (Workflows), `flow` (Workflows OAuth), `okta_account_settings` (End User Settings, appeared 2026-08-30).
   **Treat this list as a hint, not a roster.** Okta both adds and removes first-party apps on its
   own — `okta_personal_app_migration` appeared 2026-06-26 and was gone by 2026-08-23. So classify
   by the shape, not by the list: an app whose internal `name` is an `okta_*` / Okta-internal
   identifier, which nobody here created, is unmanaged-on-purpose. Note it in the report; don't
   flag it as drift, and don't bother adding it here.
 - label `okta-mcp-browser` (`0oa181pcu93mzNgKr698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE, `device_code` grant) → **deliberately unmanaged**. It's the okta-mcp-server's own client (user-delegated device-code login); an apply that breaks it would break the MCP. See CLAUDE.md → "Deliberately unmanaged: not drift". (It replaced the `C_mcp` service app on 2026-09-25; `C_mcp` was deleted — if it reappears, it's drift.)
-- label `Hermes Dashboard` (`0oa16q11mp5oL7Brc698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE) and label `AI Harmess` (`0oa16pzy2koEUVYf1698`, INACTIVE) → **deliberately unmanaged**. See CLAUDE.md → "Deliberately unmanaged: not drift" for why Hermes can't be adopted as-is.
-  Note there was briefly a **second, abandoned** app also labelled `Hermes Dashboard` (`0oa16pzv08uDQV7Fy698`, `web` + client secret, `ORG_URL`) — superseded 2026-08-22 and deactivated. If two same-labelled apps ever show up again, match by **id**, not label, and check `~/.hermes/config.yaml` on k3s-master for the one actually in use.
+- label `Hermes Dashboard` (`0oa16q11mp5oL7Brc698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE) → **deliberately unmanaged**. See CLAUDE.md → "Deliberately unmanaged: not drift" for why Hermes can't be adopted as-is.
+- Deleted 2026-09-26, so **drift** if they reappear: the abandoned web `Hermes Dashboard` (`0oa16pzv08uDQV7Fy698`) and `AI Harmess` (`0oa16pzy2koEUVYf1698`).
 - label present in `config/apps.yaml` → **managed** ✅ (currently `Headlamp`)
 - any other `oidc_client` app not in `config/apps.yaml` → **DRIFT** ⚠️
 
