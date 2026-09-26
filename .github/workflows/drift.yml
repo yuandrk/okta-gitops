@@ -1,0 +1,69 @@
+name: Terraform Drift
+
+# Manual drift check: Actions → Terraform Drift → Run workflow.
+# Runs a read-only `terraform plan` against the live org. Fails if the plan shows
+# changes (someone edited the org in the Admin Console) or can't run (a 401 means
+# the SSWS token expired, see docs/runbook.md). No schedule on purpose: run it when needed.
+#
+# -lock=false: plan only reads, so it doesn't take the S3 lock and can't block an apply.
+# OIDC subject is ref:refs/heads/main, already in the IAM role trust.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write # required for OIDC AWS auth
+  contents: read
+
+jobs:
+  drift:
+    name: drift
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-west-2
+
+      - name: Terraform init
+        run: terraform init -backend-config=backend.hcl
+
+      # -detailed-exitcode: 0 = no changes, 1 = error, 2 = drift.
+      - name: Terraform plan
+        id: plan
+        run: terraform plan -lock=false -no-color -detailed-exitcode
+        env:
+          TF_VAR_org_name: ${{ vars.TF_VAR_ORG_NAME }}
+          TF_VAR_api_token: ${{ secrets.TF_VAR_API_TOKEN }}
+        continue-on-error: true
+
+      - name: Summary
+        env:
+          EXITCODE: ${{ steps.plan.outputs.exitcode }}
+          PLAN_OUT: ${{ steps.plan.outputs.stdout }}
+          PLAN_ERR: ${{ steps.plan.outputs.stderr }}
+        run: |
+          case "$EXITCODE" in
+            0) verdict="✅ No drift: the org matches the code." ;;
+            2) verdict="⚠️ Drift: the plan below shows changes." ;;
+            *) verdict="❌ Plan failed. A 401 means the Okta token expired (docs/runbook.md)." ;;
+          esac
+          {
+            echo "### $verdict"
+            echo
+            echo '```'
+            printf '%s\n%s\n' "$PLAN_OUT" "$PLAN_ERR"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on drift or error
+        if: steps.plan.outputs.exitcode != '0'
+        run: exit 1

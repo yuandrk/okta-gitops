@@ -78,6 +78,7 @@ Group names, rule expressions and app settings are not secrets. Plain YAML makes
 
 - `plan.yml` runs on each PR: fmt → init → validate → tflint → module tests → plan, and posts the plan as a PR comment. Branch protection requires the `plan` check and an up-to-date branch.
 - `apply.yml` runs on push to `main`: the `prod` GitHub Environment waits for manual approval, then runs `apply -auto-approve`.
+- `drift.yml` runs only when started by hand (`workflow_dispatch`). It runs a read-only `plan -lock=false -detailed-exitcode` and fails on drift or error. There's no schedule on purpose: the check runs when it's needed, not on a timer. Running it also counts as token use for the 30-day inactivity limit.
 - AWS access uses GitHub OIDC → IAM role `github-okta-gitops` (account `756755582140`). No static keys are stored. The trust policy must allow `ref:refs/heads/main`, `pull_request` and `environment:*`.
 - Secret `TF_VAR_API_TOKEN`. Variables `TF_VAR_ORG_NAME` and `AWS_ROLE_ARN`.
 - `plan.yml` runs on **every** PR, with no `paths:` filter. A required check that a path filter skips never reports, so the PR can't merge. Plan is cheap and read-only, so it always runs.
