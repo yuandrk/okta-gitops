@@ -1,86 +1,91 @@
 # 🔐 Okta GitOps
 
-> Manage an [Okta](https://www.okta.com/) org as code — groups, auto-assignment rules, and OIDC apps — with Terraform, remote state, and a PR-gated pipeline.
+> Okta as the single sign-on for my homelab, managed with Terraform — groups, auto-assignment rules, and app integrations, changed only through reviewed PRs.
 
 [![Terraform Plan](https://github.com/yuandrk/okta-gitops/actions/workflows/plan.yml/badge.svg)](https://github.com/yuandrk/okta-gitops/actions/workflows/plan.yml)
 ![Terraform](https://img.shields.io/badge/Terraform-%E2%89%A5_1.10-7B42BC?logo=terraform&logoColor=white)
 ![Okta provider](https://img.shields.io/badge/okta%2Fokta-~%3E_6.0-blue)
 ![State](https://img.shields.io/badge/state-S3_native_locking-FF9900?logo=amazons3&logoColor=white)
 
-A small but real GitOps setup: modular Terraform, S3 remote state with native locking, and a GitHub Actions plan→apply pipeline using OIDC to AWS (no static keys).
+## Why this exists
 
-**The use case:** [Headlamp](https://headlamp.dev/) — the homelab Kubernetes dashboard — uses Okta for login. Terraform owns the Okta side; the k3s cluster maps Okta groups to RBAC roles (in a separate repo).
+1. **Real SSO for the homelab.** Signing in to [Headlamp](https://headlamp.dev/) (k3s dashboard) and the Hermes dashboard goes through Okta, and the Okta side lives here.
+2. **A rehearsal for Okta at work.** Patterns like import-before-apply, drift checks and the MCP-assisted admin get worked out here first, on a developer org where mistakes are cheap.
+3. **Learning and a portfolio.** Each resource is annotated with the Okta API call and Admin Console screen it maps to.
+
+## What's in the org
+
+Org: `integrator-7752059.okta.com` (developer org), with custom domain `okta.yuandrk.net`.
+
+| Thing | Managed by | Notes |
+| --- | --- | --- |
+| Group `homelab-admins` | Terraform | Rule `user.division == "IT"`. Gates Headlamp → k3s `cluster-admin` |
+| Group `Andriuk corp` | Terraform | Same rule. Gates the Hermes tile |
+| OIDC app `Headlamp` | Terraform | Web app, `issuer_mode: CUSTOM_URL`, sign-on policy "password only" |
+| Bookmark `Hermes` | Terraform | Dashboard tile → `https://hermes.yuandrk.net` |
+| OIDC app `Hermes Dashboard` | Admin Console | Native/PKCE public client. The module can't express it yet |
+| OIDC app `okta-mcp-browser` | Admin Console | Login for the okta-mcp-server (device code). Bootstrap credential |
+| `AI Harmess`, an old inactive `Hermes Dashboard` | Admin Console | Inactive leftovers and experiments |
+| Built-in groups, `okta_*` system apps | Okta | Okta adds and removes these on its own |
+| **Users** | Admin Console | Never in Terraform. Group rules sort them into groups |
+
+Why things are split this way: [docs/design.md](docs/design.md).
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    U[User in Okta] -->|profile: division=IT| R[okta_group_rule]
-    R -->|auto-assign| G[okta_group<br/>homelab-admins]
-    G -->|assigned to| A[okta_app_oauth<br/>Headlamp]
-    A -->|OIDC login + groups claim| H[Headlamp UI]
-    H -->|ClusterRoleBinding| K[k3s RBAC<br/>cluster-admin]
+    U[User in Okta<br/>division=IT] --> R[okta_group_rule]
+    R -->|auto-assign| G1[homelab-admins]
+    R -->|auto-assign| G2[Andriuk corp]
+    G1 -->|assigned| A[Headlamp<br/>OIDC app]
+    G2 -->|assigned| B[Hermes<br/>bookmark tile]
+    A -->|OIDC via okta.yuandrk.net<br/>+ groups claim| H[Headlamp → k3s RBAC]
+    B -->|link| HD[hermes.yuandrk.net]
 
-    subgraph TF["🟣 Managed by Terraform (this repo)"]
+    subgraph TF["🟣 Terraform (this repo)"]
         R
-        G
+        G1
+        G2
         A
-    end
-    subgraph HL["🏠 homelab repo"]
-        K
+        B
     end
 ```
 
-**Terraform owns:** groups (`okta_group`), auto-assign rules (`okta_group_rule`), and the OIDC app + its sign-on policy and group assignment (`okta_app_oauth`).
-**It does _not_ own users** — they live in Okta (Admin Console / SCIM) as the source of truth; rules sort them into groups by profile attributes.
+The group name in the OIDC `groups` claim is the contract with the cluster. The `ClusterRoleBinding` that turns `homelab-admins` into `cluster-admin` lives in the separate homelab repo.
 
 ## Quick start
 
 ```bash
-git clone https://github.com/yuandrk/okta-gitops && cd okta-gitops
-
-cp terraform.tfvars.example terraform.tfvars   # add your Okta API token
-
+cp terraform.tfvars.example terraform.tfvars
+# api_token comes from 1Password: op://homelab/okta-gitops/credential
+aws login                                   # S3 state backend
 terraform init -backend-config=backend.hcl
-terraform plan        # always review first
-terraform apply
+terraform plan                              # expect: No changes
 ```
 
-## Layout
+## Making a change
+
+Edit `groups.yaml` or `apps.yaml`, then open a PR. CI posts the `terraform plan` as a comment. After the merge, the apply waits for manual approval in the `prod` environment. Recipes are in the [runbook](docs/runbook.md).
 
 ```text
 okta-gitops/
-├── main.tf · variables.tf · outputs.tf   # provider, backend, module calls, outputs
-├── groups.yaml                           # groups + Okta Expression Language rules
-├── apps.yaml                             # OIDC app integrations (Headlamp)
+├── main.tf · variables.tf · outputs.tf   # provider, S3 backend, module calls
+├── groups.yaml                           # groups + group rules
+├── apps.yaml                             # OIDC apps + bookmark tiles
 ├── backend.hcl                           # S3 backend config
 └── modules/
-    ├── identity/   # okta_group + okta_group_rule
-    └── apps/       # okta_app_oauth + sign-on policy/rule + group assignment
+    ├── identity/   # okta_group, okta_group_rule
+    └── apps/       # okta_app_oauth (+ sign-on policy/rule), okta_app_bookmark, group assignments
 ```
 
-Change access by editing `groups.yaml` / `apps.yaml`, then open a PR — CI posts the plan as a comment, and merge to `main` applies it (after manual approval).
+> **Two independent credentials.** Terraform uses an SSWS API token, which dies after 30 days without use. The okta-mcp-server uses its own device-code login. One can work while the other is dead, so check them separately.
 
 ## Docs
 
-| | |
-| --- | --- |
-| [Architecture](docs/architecture.md) | repo layout, modules (identity, apps) |
-| [Source of truth](docs/source-of-truth.md) | why users live in Okta, how group rules + RBAC map |
-| [Runbook](docs/runbook.md) | add a group/app/user, rotate the API token |
-| [CI/CD](docs/ci-cd.md) | plan/apply workflows, OIDC trust, branch protection |
-| [State backend](docs/state-backend.md) | S3 native locking, recovery |
-| [Changelog](docs/changelog.md) | what was built, in order |
-
-## Stack
-
-| Layer | Choice |
-| --- | --- |
-| Identity provider | Okta developer org |
-| IaC | Terraform `>= 1.10`, `okta/okta ~> 6.0` |
-| Remote state | AWS S3 + native locking (`use_lockfile = true`) |
-| CI/CD | GitHub Actions · OIDC to AWS · environment approval gate |
-| Secrets | `TF_VAR_api_token` (CI) / `terraform.tfvars` (local, gitignored) |
+- [Runbook](docs/runbook.md): add a user, group, app or tile; rotate the token; drift check; state recovery
+- [Design](docs/design.md): the decisions behind this setup, and lessons that carry over to work
+- [CLAUDE.md](CLAUDE.md): rules for AI agents working in this repo
 
 ## License
 

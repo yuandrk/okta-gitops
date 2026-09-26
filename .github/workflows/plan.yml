@@ -6,7 +6,7 @@ name: Terraform Plan
 # Required GitHub repository setup (one-time):
 #   Secrets : TF_VAR_API_TOKEN  — Okta API token
 #   Variables: TF_VAR_ORG_NAME  — e.g. "integrator-7752059"
-#              AWS_ROLE_ARN     — IAM role ARN for OIDC (see docs/iam-oidc.md)
+#              AWS_ROLE_ARN     — IAM role ARN for OIDC (see docs/design.md → CI)
 
 on:
   pull_request:

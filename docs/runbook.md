@@ -1,88 +1,175 @@
 # Runbook
 
-Common operations, in order of frequency.
+How to do common changes and handle incidents. For the reasoning behind any of this, see [design.md](design.md).
 
-## Add a user
+All Terraform commands run from the repo root. Always read the output of `terraform plan` before you apply.
 
-Users are not in Terraform. To create one:
+---
 
-1. Admin Console → **Directory → People → Add Person**
-2. Fill in profile. **Make sure to set:**
-   - **User type** (e.g. `Employee`, `Contractor`)
-   - **Division** (e.g. `Engineering`, `IT`)
-   - Any other attributes referenced by your group rules
-3. Save → group rules evaluate within seconds and add the user to matching groups
-4. Verify in Admin Console → **Directory → Groups → <group> → People** that the rule picked them up
+## Before anything: credentials
 
-If the user did not land in the expected group, check:
+Two things have to be valid, and each expires on its own:
 
-- Group rule status is **ACTIVE**
-- The exact attribute value matches the expression (case-sensitive — `Engineering` ≠ `engineering`)
-- The rule expression is well-formed (Admin Console → Directory → Groups → Rules shows validation errors)
+```bash
+# AWS, for the S3 state backend
+aws sts get-caller-identity || aws login
 
-## Add a group (with auto-assignment rule)
+# Okta SSWS token, for the Terraform provider. Never echo the token itself.
+TOK=$(op read "op://homelab/okta-gitops/credential")
+curl -s -H "Authorization: SSWS $TOK" -H "Accept: application/json" \
+  "https://integrator-7752059.okta.com/api/v1/users/me" | jq -r '.errorSummary // "token OK"'
+```
 
-1. Edit `groups.yaml`:
+`terraform.tfvars` must contain the same token that 1Password has. See [Rotate the Okta API token](#rotate-the-okta-api-token).
 
-   ```yaml
-   - name: Platform
-     description: Platform engineering
-     rule: 'user.division == "Platform"'
-   ```
+---
 
-2. Open a PR. CI runs `terraform plan` and posts the diff as a PR comment.
-3. Merge to `main`. The `apply` workflow waits for manual approval in the `prod` GitHub Environment, then runs `terraform apply -auto-approve`.
+## Day to day
 
-## Change a group rule expression
+### Add a user
 
-Same flow as adding a group. The Okta provider deactivates the rule, updates the expression, and reactivates — visible in plan output as `status: ACTIVE → INACTIVE → ACTIVE`.
+Users are not managed in Terraform.
 
-## Add an OIDC app or change who may use it
+1. Go to Admin Console → **Directory → People → Add Person**.
+2. Set **Division**. `IT` is currently the only value any rule matches: it lands the user in `homelab-admins` and `Andriuk corp`.
+3. Save. The group rules evaluate within seconds.
+4. Check in **Directory → Groups → \<group\> → People**.
 
-1. Edit `apps.yaml` — add an app entry, or change an existing app's `groups` list (which Okta groups may sign in):
+If the user didn't land in a group:
+- Check that the rule is **ACTIVE**.
+- Attribute values are case-sensitive.
+- Rules only fire on user creation and on profile changes.
 
-   ```yaml
-   - name: Grafana
-     redirect_uris: ["https://grafana.yuandrk.net/login/generic_oauth"]
-     groups: ["homelab-admins"]
-     signon_policy:
-       name: "Grafana Sign-On Policy"
-       description: "Managed by Terraform"
-   ```
+### Add a group or change a rule
 
-2. PR → review plan → merge. After apply, read the new client ID with `terraform output oidc_client_ids` and the secret with `terraform output -raw oidc_client_secrets` to wire the relying party.
-3. **Renaming an app or changing its `groups` keys changes the resource address** (`okta_app_oauth.oidc["<name>"]`, `okta_app_group_assignment.oidc["<app>:<group>"]`) — Terraform will destroy and recreate. Confirm that's intended in the plan before applying.
+Edit `groups.yaml`:
 
-## Rotate the Okta API token
+```yaml
+- name: homelab-viewers
+  description: Read-only access to the homelab
+  rule: 'user.division == "IT" and user.userType == "Contractor"'   # optional
+```
 
-1. Admin Console → **Security → API → Tokens** → create new token
-2. Copy the new token, invalidate the old one
-3. Update GitHub repo secret `TF_VAR_API_TOKEN` (Settings → Secrets and variables → Actions)
-4. Update local `terraform.tfvars` if you run Terraform locally
-5. Optional: `terraform plan` — should show no changes (token doesn't appear in state)
+Then open a PR, review the plan comment, merge, and approve the apply in the `prod` environment.
 
-## Recover from a broken state lock
+To change an existing rule expression, the provider deactivates the rule, updates it, and reactivates it. In the plan this shows as `ACTIVE → INACTIVE → ACTIVE`, which is expected.
 
-S3-native locking stores a `<key>.tflock` object. If a previous run was killed mid-apply:
+### Add an OIDC app
+
+Add an entry to `apps.yaml`. Only `name`, `redirect_uris` and `signon_policy.name` are required. Everything else has defaults in `modules/apps/variables.tf`.
+
+```yaml
+- name: Grafana
+  type: web
+  grant_types: ["authorization_code", "refresh_token"]
+  redirect_uris: ["https://grafana.yuandrk.net/login/generic_oauth"]
+  post_logout_redirect_uris: ["https://grafana.yuandrk.net"]
+  issuer_mode: CUSTOM_URL      # tokens issued by okta.yuandrk.net, so it shares the dashboard SSO session
+  hide_web: false              # tile on the end-user dashboard (needs login_mode + login_uri)
+  login_mode: SPEC
+  login_scopes: ["openid"]
+  login_uri: "https://grafana.yuandrk.net"
+  groups: ["homelab-admins"]
+  signon_policy:
+    name: "Grafana Sign-On Policy"
+    description: "Managed by Terraform — 1FA password only"
+```
+
+After the apply, read the client credentials and use them to configure the app:
+
+```bash
+terraform output oidc_client_ids
+terraform output -json oidc_client_secrets | jq -r '.Grafana'
+```
+
+The app `name` and each `App:Group` pair are `for_each` keys. **Renaming either one destroys and recreates the resource**, and a recreated app gets a new client ID and secret.
+
+The module only handles confidential web apps. A public or native client (PKCE, no secret) such as `Hermes Dashboard` can't be expressed yet. See [design.md](design.md#hermes-oidc-app-stays-in-the-console-a-bookmark-gives-it-a-tile).
+
+### Add a dashboard tile (bookmark)
+
+Use this for anything that needs a link on the Okta dashboard but has no OIDC app of its own, or whose OIDC app can't have a tile:
+
+```yaml
+bookmarks:
+  - label: Grafana
+    url: https://grafana.yuandrk.net
+    groups: ["Andriuk corp"]
+```
+
+### Check for drift
+
+Drift is anything changed in the Admin Console that the code doesn't know about.
+
+- **Quick way:** in Claude Code, run `/okta-drift`. It compares the live inventory (via MCP) against the YAML and runs `terraform plan`.
+- **By hand:**
+  1. List groups and apps with the MCP tools, or in the Admin Console.
+  2. Sort each one into one of three buckets: in YAML, deliberately in the Console (see the [README](../README.md#whats-in-the-org)), or drift.
+  3. Run `terraform plan`. Group rules can **only** be checked this way.
+
+### Adopt something that was created in the Console
+
+Import it **before** you apply. Otherwise the apply tries to create a duplicate.
+
+```bash
+terraform import 'module.identity.okta_group.groups["<name>"]' <00g…id>
+terraform plan   # adjust the YAML until this resource shows no changes
+```
+
+---
+
+## Incidents
+
+### `401 Unauthorized` from the provider
+
+```
+Error: [ERROR] failed validate configuration: error with v3 SDK client: 401 Unauthorized
+```
+
+This means the token expired: SSWS tokens die after **30 days without API calls**. The config is fine, so don't debug the `.tf` files. Rotate the token, as below.
+
+The MCP tools keep working through a 401, because they use a different credential. That doesn't mean Terraform's token is fine.
+
+### Rotate the Okta API token
+
+It has to be updated in **both** places, or CI stays broken:
+
+```bash
+# 1. Admin Console → Security → API → Tokens → Create Token → save into 1Password (okta-gitops)
+
+# 2. Local: write it into terraform.tfvars without printing it
+TOK=$(op read "op://homelab/okta-gitops/credential") \
+  awk '/^api_token/{print "api_token = \"" ENVIRON["TOK"] "\""; next} {print}' terraform.tfvars > t.new \
+  && command mv -f t.new terraform.tfvars
+
+# 3. CI
+op read "op://homelab/okta-gitops/credential" | gh secret set TF_VAR_API_TOKEN
+```
+
+Then run `terraform plan`. You should see No changes; the token isn't stored in state.
+
+### Stale state lock
+
+If a run was killed mid-apply, the lock can be left behind as an object in S3. Only delete it if nothing else is running:
 
 ```bash
 aws s3 ls s3://terraform-state-homelab-yuandrk/prod/
-# look for terraform.tfstate.tflock
 aws s3 rm s3://terraform-state-homelab-yuandrk/prod/terraform.tfstate.tflock
 ```
 
-Only do this if you are certain no other process is running.
+### Restore state (accidental destroy or corrupted state)
 
-## Emergency: stop a rule from assigning users
+The bucket is versioned. Copy the previous version back over the current one:
 
-Two options, in order of preference:
+```bash
+aws s3api list-object-versions --bucket terraform-state-homelab-yuandrk --prefix prod/terraform.tfstate
+aws s3api copy-object --bucket terraform-state-homelab-yuandrk \
+  --copy-source "terraform-state-homelab-yuandrk/prod/terraform.tfstate?versionId=<id>" \
+  --key prod/terraform.tfstate
+terraform plan   # see how far live Okta has moved from the restored state
+```
 
-1. **Deactivate the rule** in Admin Console → Directory → Groups → Rules → toggle to Inactive. This is *not* picked up by Terraform on next apply (provider will revert it back to ACTIVE if `status = "ACTIVE"` in code) — so this is a stopgap until you can ship a code change.
-2. **Remove the group entry from `groups.yaml`** and apply. The rule and group are destroyed.
+### Stop a rule from assigning users right now
 
-## Adding a non-trivial resource
-
-When adding something the identity module doesn't cover (an app, a policy):
-
-1. Start it as a concrete resource in the root `main.tf`; extract a `modules/<name>/` only once you have 2–3 instances sharing a real shape — don't pre-abstract
-2. Reference existing groups through `module.identity.group_ids["<name>"]` if the resource needs to assign to them (e.g. an `okta_app_group_assignment` for `homelab-admins`)
+1. **Stopgap:** Admin Console → Directory → Groups → Rules → deactivate the rule. The next apply turns it back on.
+2. **Proper fix:** remove the `rule:` line from `groups.yaml` (keeps the group), or remove the whole entry. Then open a PR and apply.
