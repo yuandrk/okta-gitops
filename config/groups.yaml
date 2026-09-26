@@ -8,3 +8,7 @@ groups:
     description: Main users
     rule: 'user.division == "IT"' # division=IT → auto-assigned
 
+  - name: IT
+    description: Homelab admins (Kite)
+    rule: 'user.division == "IT"'
+
