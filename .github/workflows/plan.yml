@@ -1,6 +1,7 @@
 name: Terraform Plan
 
-# Runs on every PR that touches Terraform code.
+# Runs on every PR to main (no paths: filter). `plan` is a required check, so a
+# filtered-out PR (docs only) would never get it and could never merge.
 # Posts a plan summary as a PR comment so reviewers can see what will change.
 #
 # Required GitHub repository setup (one-time):
@@ -11,12 +12,6 @@ name: Terraform Plan
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "*.tf"
-      - "groups.yaml"
-      - "apps.yaml"
-      - "backend.hcl"
-      - "modules/**"
 
 permissions:
   id-token: write      # required for OIDC AWS auth

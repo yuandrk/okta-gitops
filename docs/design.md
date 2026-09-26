@@ -69,7 +69,8 @@ Group names, rule expressions and app settings are not secrets. Plain YAML makes
 - `apply.yml` runs on push to `main`: the `prod` GitHub Environment waits for manual approval, then runs `apply -auto-approve`.
 - AWS access uses GitHub OIDC → IAM role `github-okta-gitops` (account `756755582140`). No static keys are stored. The trust policy must allow `ref:refs/heads/main`, `pull_request` and `environment:*`.
 - Secret `TF_VAR_API_TOKEN`. Variables `TF_VAR_ORG_NAME` and `AWS_ROLE_ARN`.
-- Both workflows filter on `paths:`. **Every file the root reads must be listed.** `apps.yaml` was missing until 2026-08-22, so apps-only changes skipped CI without any error.
+- `plan.yml` runs on **every** PR, with no `paths:` filter. A required check that a path filter skips never reports, so the PR can't merge. Plan is cheap and read-only, so it always runs.
+- `apply.yml` filters on `paths:`, so docs-only merges don't ask for an approval. **Every file the root reads must be listed there.** `apps.yaml` was missing until 2026-08-22, so apps-only changes skipped CI without any error.
 
 ---
 

@@ -73,7 +73,8 @@ Use the `/okta-drift` skill (`.claude/skills/okta-drift`). It runs these steps:
 ## CI traps
 
 - `plan.yml` runs on PRs and posts the plan as a comment. The `plan` check is required. `apply.yml` runs on push to `main`, behind the `prod` environment approval.
-- **`paths:` filters must list every input file** (`*.tf`, `groups.yaml`, `apps.yaml`, `backend.hcl`, `modules/**`). A change to an unlisted file triggers nothing: no plan and no apply. `apps.yaml` was missing until 2026-08-22. When you add a new YAML input, add it to **both** workflows in the same commit.
+- **`plan.yml` has no `paths:` filter on purpose.** `plan` is a required check; with a filter, a docs-only PR never gets it and stays BLOCKED forever (happened to PR #12). Don't add one back.
+- **`apply.yml`'s `paths:` filter must list every input file** (`*.tf`, `groups.yaml`, `apps.yaml`, `backend.hcl`, `modules/**`). A merge touching only unlisted files runs no apply. `apps.yaml` was missing until 2026-08-22. When you add a new YAML input, add it there in the same commit.
 - The IAM role trust must include `repo:yuandrk/okta-gitops:ref:refs/heads/main`, `:pull_request` and `:environment:*`.
 
 ## Docs hygiene
