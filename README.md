@@ -4,7 +4,7 @@
 
 [![Terraform Plan](https://github.com/yuandrk/okta-gitops/actions/workflows/plan.yml/badge.svg)](https://github.com/yuandrk/okta-gitops/actions/workflows/plan.yml)
 ![Terraform](https://img.shields.io/badge/Terraform-%E2%89%A5_1.10-7B42BC?logo=terraform&logoColor=white)
-![Okta provider](https://img.shields.io/badge/okta%2Fokta-~%3E_6.0-blue)
+![Okta provider](https://img.shields.io/badge/okta%2Fokta-~%3E_7.0-blue)
 ![State](https://img.shields.io/badge/state-S3_native_locking-FF9900?logo=amazons3&logoColor=white)
 
 ## Why this exists

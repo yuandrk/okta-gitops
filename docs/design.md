@@ -54,7 +54,7 @@ The layout follows HashiCorp's [standard module structure](https://developer.has
 
 - **One concern per file.** `versions.tf` (Terraform/provider constraints, backend), `providers.tf`, `locals.tf` (YAML decoding), `main.tf` (module calls only). Inside `modules/apps`, OIDC apps and bookmarks live in `oidc.tf` and `bookmarks.tf`.
 - **Data apart from code.** Everything you edit day to day is in `config/`. The `.tf` files change only when the *shape* of what's managed changes.
-- **Version constraints:** the root pins `okta ~> 6.0` and commits `.terraform.lock.hcl`; modules only declare a floor (`>= 6.0`), so they don't block a future provider upgrade.
+- **Version constraints:** the root pins `okta ~> 7.0` and commits `.terraform.lock.hcl` (with linux_amd64 + darwin_arm64 hashes, via `terraform providers lock`); modules only declare a floor (`>= 6.0`), so they don't block a provider upgrade. The 6.10 → 7.0 bump (2026-09-26) was plan → No changes: 7.0's breaking changes hit resources this repo doesn't use.
 - **Fail at plan time, with a readable message.** Variable validation rejects unknown group names, bad enum values and duplicate keys before Okta sees anything. Before this, a typo in a group name produced a bare "Invalid index".
 - **Tests without an org.** `terraform test` with `mock_provider "okta"` checks the `for_each` key shapes (state addresses) and the validations. On the first run it found a real bug: `signon_policy.description` was optional in the module but required by the provider.
 - **Names are state.** Resource and module names (`module.identity`, `okta_group.groups`, `okta_app_oauth.oidc`…) predate these conventions and are kept on purpose. Renaming them would need `moved` blocks for no functional gain.

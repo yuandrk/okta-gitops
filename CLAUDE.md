@@ -4,7 +4,7 @@ Guidance for AI agents working in this repo. Humans: start at [README.md](README
 
 ## Purpose
 
-Okta as the SSO for the homelab (Headlamp, Hermes), managed with the [okta/okta](https://registry.terraform.io/providers/okta/okta/latest/docs) provider (`~> 6.0`). The repo is also a rehearsal ground for an Okta rollout at work, and a learning/portfolio project. Keep the per-resource comments that map each block to its Okta API call and Admin Console screen.
+Okta as the SSO for the homelab (Headlamp, Hermes), managed with the [okta/okta](https://registry.terraform.io/providers/okta/okta/latest/docs) provider (`~> 7.0`). The repo is also a rehearsal ground for an Okta rollout at work, and a learning/portfolio project. Keep the per-resource comments that map each block to its Okta API call and Admin Console screen.
 
 - What's in the org and who manages it: [README → What's in the org](README.md#whats-in-the-org)
 - Why things are done this way: [docs/design.md](docs/design.md)
