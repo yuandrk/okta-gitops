@@ -18,6 +18,17 @@ variable "apps" {
     login_scopes = optional(list(string), [])
     login_uri    = optional(string)
     groups       = optional(list(string), [])
+    # How the client authenticates at the token endpoint. Some RPs (e.g. Kite) only
+    # send client_id/secret in the POST body and need client_secret_post.
+    token_endpoint_auth_method = optional(string, "client_secret_basic")
+    # Groups claim in the ID token (org authorization server). FILTER + REGEX
+    # includes every group of the user whose name matches `value`.
+    groups_claim = optional(object({
+      name        = optional(string, "groups")
+      type        = optional(string, "FILTER")
+      filter_type = optional(string, "REGEX")
+      value       = string
+    }))
     signon_policy = object({
       name        = string
       description = string # required by okta_app_signon_policy
@@ -48,6 +59,11 @@ variable "apps" {
   validation {
     condition     = alltrue([for a in var.apps : contains(["DISABLED", "SPEC", "OKTA"], a.login_mode)])
     error_message = "login_mode must be one of: DISABLED, SPEC, OKTA."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.apps : contains(["client_secret_basic", "client_secret_post"], a.token_endpoint_auth_method)])
+    error_message = "token_endpoint_auth_method must be client_secret_basic or client_secret_post (the module manages confidential clients only)."
   }
 
   validation {

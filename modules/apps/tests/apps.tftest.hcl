@@ -56,6 +56,45 @@ run "signon_rule_defaults_to_mfa" {
   }
 }
 
+run "auth_method_and_groups_claim_are_passed_through" {
+  command = plan
+
+  variables {
+    apps = [{
+      name                       = "Grafana"
+      redirect_uris              = ["https://grafana.example.com/callback"]
+      token_endpoint_auth_method = "client_secret_post"
+      groups_claim               = { value = "admins" }
+      signon_policy              = { name = "p", description = "d" }
+    }]
+  }
+
+  assert {
+    condition     = okta_app_oauth.oidc["Grafana"].token_endpoint_auth_method == "client_secret_post"
+    error_message = "token_endpoint_auth_method must reach the app."
+  }
+
+  assert {
+    condition     = okta_app_oauth.oidc["Grafana"].groups_claim[0].name == "groups" && okta_app_oauth.oidc["Grafana"].groups_claim[0].filter_type == "REGEX" && okta_app_oauth.oidc["Grafana"].groups_claim[0].value == "admins"
+    error_message = "groups_claim must default to name=groups, FILTER/REGEX."
+  }
+}
+
+run "public_client_auth_method_is_rejected" {
+  command = plan
+
+  variables {
+    apps = [{
+      name                       = "Grafana"
+      redirect_uris              = ["https://grafana.example.com/callback"]
+      token_endpoint_auth_method = "none"
+      signon_policy              = { name = "p", description = "d" }
+    }]
+  }
+
+  expect_failures = [var.apps]
+}
+
 run "invalid_factor_mode_is_rejected" {
   command = plan
 

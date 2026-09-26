@@ -3,16 +3,30 @@
 resource "okta_app_oauth" "oidc" {
   for_each = local.apps_by_name
 
-  label                     = each.value.name
-  type                      = each.value.type
-  grant_types               = each.value.grant_types
-  response_types            = each.value.response_types
-  redirect_uris             = each.value.redirect_uris
-  post_logout_redirect_uris = each.value.post_logout_redirect_uris
-  consent_method            = each.value.consent_method
-  issuer_mode               = each.value.issuer_mode
-  hide_ios                  = each.value.hide_ios
-  hide_web                  = each.value.hide_web
+  label                      = each.value.name
+  type                       = each.value.type
+  grant_types                = each.value.grant_types
+  response_types             = each.value.response_types
+  redirect_uris              = each.value.redirect_uris
+  post_logout_redirect_uris  = each.value.post_logout_redirect_uris
+  consent_method             = each.value.consent_method
+  issuer_mode                = each.value.issuer_mode
+  hide_ios                   = each.value.hide_ios
+  hide_web                   = each.value.hide_web
+  token_endpoint_auth_method = each.value.token_endpoint_auth_method
+
+  # Admin Console: Sign On tab → OpenID Connect ID Token → Groups claim.
+  # Deprecated in provider v7 in favour of okta_auth_server_claim, but that only
+  # covers custom authorization servers; the org AS has no other API. Needs SSWS auth.
+  dynamic "groups_claim" {
+    for_each = each.value.groups_claim == null ? [] : [each.value.groups_claim]
+    content {
+      name        = groups_claim.value.name
+      type        = groups_claim.value.type
+      filter_type = groups_claim.value.filter_type
+      value       = groups_claim.value.value
+    }
+  }
 
   # IdP-initiated login (Okta dashboard tile / initiate_login_uri).
   login_mode   = each.value.login_mode

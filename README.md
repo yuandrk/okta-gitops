@@ -9,7 +9,7 @@
 
 ## Why this exists
 
-1. **Real SSO for the homelab.** Signing in to the Hermes dashboard goes through Okta, and the Okta side lives here. (Headlamp, the k3s dashboard, used Okta too until it was retired on 2026-09-26.)
+1. **Real SSO for the homelab.** Signing in to the Hermes dashboard and to Kite (the k3s dashboard) goes through Okta, and the Okta side lives here. (Kite replaced Headlamp, retired 2026-09-26.)
 2. **A rehearsal for Okta at work.** Patterns like import-before-apply, drift checks and the MCP-assisted admin get worked out here first, on a developer org where mistakes are cheap.
 3. **Learning and a portfolio.** Each resource is annotated with the Okta API call and Admin Console screen it maps to.
 
@@ -20,6 +20,8 @@ Org: `integrator-7752059.okta.com` (developer org), with custom domain `okta.yua
 | Thing | Managed by | Notes |
 | --- | --- | --- |
 | Group `Andriuk corp` | Terraform | Rule `user.division == "IT"`. Gates the Hermes tile |
+| Group `IT` | Terraform | Rule `user.division == "IT"`. Gates Kite |
+| OIDC app `Kite` | Terraform | Web, `client_secret_post`, 2FA, `groups` claim (regex `IT`). Secret in 1Password `kite-credentials` |
 | Bookmark `Hermes` | Terraform | Dashboard tile → `https://hermes.yuandrk.net` |
 | OIDC app `Hermes Dashboard` | Admin Console | Native/PKCE public client. The module can't express it yet |
 | OIDC app `okta-mcp-browser` | Admin Console | Login for the okta-mcp-server (device code). Bootstrap credential |
@@ -36,11 +38,16 @@ flowchart LR
     R -->|auto-assign| G2[Andriuk corp]
     G2 -->|assigned| B[Hermes<br/>bookmark tile]
     B -->|link| HD[hermes.yuandrk.net]
+    R -->|auto-assign| G3[IT]
+    G3 -->|assigned| K[Kite<br/>OIDC app]
+    K -->|SSO| KD[kite.yuandrk.net]
 
     subgraph TF["🟣 Terraform (this repo)"]
         R
         G2
         B
+        G3
+        K
     end
 ```
 
