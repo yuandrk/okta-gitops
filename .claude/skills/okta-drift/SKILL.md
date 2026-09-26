@@ -50,8 +50,8 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
   by the shape, not by the list: an app whose internal `name` is an `okta_*` / Okta-internal
   identifier, which nobody here created, is unmanaged-on-purpose. Note it in the report; don't
   flag it as drift, and don't bother adding it here.
-- label `C_mcp` (service app: `application_type == "service"`, `token_endpoint_auth_method == "private_key_jwt"`, `autoKeyRotation: true`) → **deliberately unmanaged**. Reason: Okta-generated auto-rotating keys would perpetually drift, and it's the okta-mcp-server's own bootstrap credential. See CLAUDE.md → "Deliberately unmanaged resources".
-- label `Hermes Dashboard` (`0oa16q11mp5oL7Brc698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE) and label `AI Harmess` (`0oa16pzy2koEUVYf1698`, INACTIVE) → **deliberately unmanaged**. See CLAUDE.md → "Deliberately unmanaged resources" for why Hermes can't be adopted as-is.
+- label `okta-mcp-browser` (`0oa181pcu93mzNgKr698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE, `device_code` grant) → **deliberately unmanaged**. It's the okta-mcp-server's own client (user-delegated device-code login); an apply that breaks it would break the MCP. See CLAUDE.md → "Deliberately unmanaged: not drift". (It replaced the `C_mcp` service app on 2026-09-25; `C_mcp` was deleted — if it reappears, it's drift.)
+- label `Hermes Dashboard` (`0oa16q11mp5oL7Brc698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE) and label `AI Harmess` (`0oa16pzy2koEUVYf1698`, INACTIVE) → **deliberately unmanaged**. See CLAUDE.md → "Deliberately unmanaged: not drift" for why Hermes can't be adopted as-is.
   Note there was briefly a **second, abandoned** app also labelled `Hermes Dashboard` (`0oa16pzv08uDQV7Fy698`, `web` + client secret, `ORG_URL`) — superseded 2026-08-22 and deactivated. If two same-labelled apps ever show up again, match by **id**, not label, and check `~/.hermes/config.yaml` on k3s-master for the one actually in use.
 - label present in `apps.yaml` → **managed** ✅ (currently `Headlamp`)
 - any other `oidc_client` app not in `apps.yaml` → **DRIFT** ⚠️
@@ -69,11 +69,11 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
   Error: [ERROR] failed validate configuration: error with v3 SDK client: 401 Unauthorized
   ```
   SSWS tokens die after 30 days without API calls. Do **not** start debugging `main.tf` or the
-  variables — send the user to `CLAUDE.md` → Credentials → "The token expires", which covers
+  variables — send the user to `docs/runbook.md` → "Rotate the Okta API token", which covers
   rotating it in both `terraform.tfvars` and the `TF_VAR_API_TOKEN` GitHub secret.
   This is easy to misread from inside this skill: steps 1–3 above will have just succeeded,
-  because the MCP authenticates as `C_mcp` via `private_key_jwt` and is unaffected by the SSWS
-  token. A working `list_groups` says nothing about whether Terraform can authenticate.
+  because the MCP authenticates as `okta-mcp-browser` via a user-delegated device-code login
+  and is unaffected by the SSWS token. A working `list_groups` says nothing about whether Terraform can authenticate.
 - If either credential is unavailable, still deliver the inventory diff from steps 1–3 and clearly note that the plan-level check was skipped — and which credential blocked it.
 
 ### 5. Report
