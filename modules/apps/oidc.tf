@@ -1,4 +1,4 @@
-# Admin Console: Applications → Create App Integration → OIDC → Web
+# Admin Console: Applications → Create App Integration → OIDC → Web (or Native)
 # Okta API: POST /api/v1/apps  (signOnMode OPENID_CONNECT)
 resource "okta_app_oauth" "oidc" {
   for_each = local.apps_by_name
@@ -14,6 +14,7 @@ resource "okta_app_oauth" "oidc" {
   hide_ios                   = each.value.hide_ios
   hide_web                   = each.value.hide_web
   token_endpoint_auth_method = each.value.token_endpoint_auth_method
+  pkce_required              = each.value.pkce_required
 
   # Admin Console: Sign On tab → OpenID Connect ID Token → Groups claim.
   # Deprecated in provider v7 in favour of okta_auth_server_claim, but that only

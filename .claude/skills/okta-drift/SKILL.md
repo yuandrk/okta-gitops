@@ -51,9 +51,8 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
   identifier, which nobody here created, is unmanaged-on-purpose. Note it in the report; don't
   flag it as drift, and don't bother adding it here.
 - label `okta-mcp-browser` (`0oa181pcu93mzNgKr698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE, `device_code` grant) → **deliberately unmanaged**. It's the okta-mcp-server's own client (user-delegated device-code login); an apply that breaks it would break the MCP. See CLAUDE.md → "Deliberately unmanaged: not drift". (It replaced the `C_mcp` service app on 2026-09-25; `C_mcp` was deleted — if it reappears, it's drift.)
-- label `Hermes Dashboard` (`0oa16q11mp5oL7Brc698` — `application_type: native`, `token_endpoint_auth_method: none`, PKCE) → **deliberately unmanaged**. See CLAUDE.md → "Deliberately unmanaged: not drift" for why Hermes can't be adopted as-is.
-- Deleted 2026-09-26, so **drift** if they reappear: the abandoned web `Hermes Dashboard` (`0oa16pzv08uDQV7Fy698`) and `AI Harmess` (`0oa16pzy2koEUVYf1698`).
-- label present in `config/apps.yaml` → **managed** ✅ (currently `Kite`; Headlamp was deleted 2026-09-26, so an active `Headlamp` app `0oa12umcw8ypCsnsc698` or group `homelab-admins` reappearing is drift)
+- Deleted 2026-09-26, so **drift** if they reappear: the abandoned web `Hermes Dashboard` (`0oa16pzv08uDQV7Fy698`) and `AI Harmess` (`0oa16pzy2koEUVYf1698`). Don't confuse the first with the managed native `Hermes Dashboard` below; they share the label.
+- label present in `config/apps.yaml` → **managed** ✅ (currently `Kite`, and `Hermes Dashboard` `0oa16q11mp5oL7Brc698`, a public native client with PKCE, adopted in 2026-10. Headlamp was deleted 2026-09-26, so an active `Headlamp` app `0oa12umcw8ypCsnsc698` or group `homelab-admins` reappearing is drift)
 - any other `oidc_client` app not in `config/apps.yaml` → **DRIFT** ⚠️
 
 ### 4. Group rules & state-level cleanliness → `terraform plan`

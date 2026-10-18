@@ -19,8 +19,11 @@ variable "apps" {
     login_uri    = optional(string)
     groups       = optional(list(string), [])
     # How the client authenticates at the token endpoint. Some RPs (e.g. Kite) only
-    # send client_id/secret in the POST body and need client_secret_post.
+    # send client_id/secret in the POST body and need client_secret_post. A public
+    # client (native or browser, e.g. Hermes Dashboard) holds no secret: "none" + PKCE.
     token_endpoint_auth_method = optional(string, "client_secret_basic")
+    # Proof Key for Code Exchange. Required for public clients.
+    pkce_required = optional(bool, false)
     # Groups claim in the ID token (org authorization server). FILTER + REGEX
     # includes every group of the user whose name matches `value`.
     groups_claim = optional(object({
@@ -68,8 +71,13 @@ variable "apps" {
   # --- Client auth & sign-in -------------------------------------------------------
 
   validation {
-    condition     = alltrue([for a in var.apps : contains(["client_secret_basic", "client_secret_post"], a.token_endpoint_auth_method)])
-    error_message = "token_endpoint_auth_method must be client_secret_basic or client_secret_post (the module manages confidential clients only)."
+    condition     = alltrue([for a in var.apps : contains(["client_secret_basic", "client_secret_post", "none"], a.token_endpoint_auth_method)])
+    error_message = "token_endpoint_auth_method must be client_secret_basic, client_secret_post, or none for a public client."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.apps : a.token_endpoint_auth_method != "none" || (contains(["native", "browser"], a.type) && a.pkce_required)])
+    error_message = "A public client (token_endpoint_auth_method = none) must be type native or browser, with pkce_required = true."
   }
 
   validation {

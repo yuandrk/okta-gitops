@@ -86,7 +86,7 @@ terraform output -json oidc_client_secrets | jq -r '.Grafana'
 
 The app `name` and each `App:Group` pair are `for_each` keys. **Renaming either one destroys and recreates the resource**, and a recreated app gets a new client ID and secret.
 
-The module only handles confidential web apps. A public or native client (PKCE, no secret) such as `Hermes Dashboard` can't be expressed yet. See [design.md](design.md#hermes-oidc-app-stays-in-the-console-a-bookmark-gives-it-a-tile).
+For a public client (a native or browser app that holds no secret, like `Hermes Dashboard`), set `type: native` or `type: browser`, `token_endpoint_auth_method: none` and `pkce_required: true`. Validation rejects `none` anywhere else. A public client has no entry in `oidc_client_secrets`, and it can't have a dashboard tile, so add a bookmark if it needs one. See [design.md](design.md#hermes-a-public-native-client-and-a-bookmark-for-its-tile).
 
 ### Add a dashboard tile (bookmark)
 
@@ -135,10 +135,22 @@ Drift is anything changed in the Admin Console that the code doesn't know about.
 
 Import it **before** you apply. Otherwise the apply tries to create a duplicate.
 
-```bash
-terraform import 'module.identity.okta_group.groups["<name>"]' <00g…id>
-terraform plan   # adjust the YAML until this resource shows no changes
-```
+The usual way is an import block, so the import is reviewed in the PR and CI applies it:
+
+1. Add the entry to `config/*.yaml`, and an `import` block for each resource to `imports.tf`. The ID formats are on each resource's registry page.
+
+   ```hcl
+   import {
+     to = module.apps.okta_app_oauth.oidc["<name>"]
+     id = "<0oa…id>"
+   }
+   ```
+
+2. Open a PR. The plan comment shows `will be imported`, followed by every attribute where the YAML and the live object differ.
+3. Adjust the YAML until only the changes you mean remain, then merge and approve the apply.
+4. In the next PR, delete the block. Once applied it's a no-op.
+
+From a laptop, the CLI does the same: `terraform import '<address>' <id>`, then `terraform plan` until that resource shows no changes.
 
 ### Review a Renovate PR
 

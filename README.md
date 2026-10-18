@@ -40,20 +40,21 @@ flowchart LR
         G2["group <b>IT</b><br/>rule: division == IT"]
         G1["group <b>Andriuk corp</b><br/>rule: division == IT"]
         K["OIDC app <b>Kite</b><br/>→ kite.yuandrk.net · 2FA"]
+        HA["OIDC app <b>Hermes Dashboard</b><br/>native, PKCE · 2FA"]
         B["bookmark tile <b>Hermes</b><br/>→ hermes.yuandrk.net"]
         G2 -->|assigned| K
+        G1 -->|assigned| HA
         G1 -->|assigned| B
     end
 
     U -->|auto-assign| G2
     U -->|auto-assign| G1
-    G1 -.->|assigned in Console| HA["OIDC app <b>Hermes Dashboard</b><br/>native, PKCE · no tile"]
 
     classDef console stroke-dasharray: 5 5
-    class U,HA console
+    class U console
 ```
 
-Dashed boxes live in the Admin Console, not in Terraform. Why: [What's in the org](#whats-in-the-org).
+The dashed box lives in the Admin Console: users are never in Terraform. Hermes signs in through its native app, which can't have a dashboard tile, so the bookmark gives it one. More in [What's in the org](#whats-in-the-org).
 
 ### How a change ships
 
@@ -91,16 +92,16 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 
 | Resource | Details |
 | --- | --- |
-| Group `Andriuk corp` | Rule `user.division == "IT"`. Gates the Hermes tile |
+| Group `Andriuk corp` | Rule `user.division == "IT"`. Gates Hermes Dashboard and its tile |
 | Group `IT` | Rule `user.division == "IT"`. Gates Kite |
 | OIDC app `Kite` | Web, `client_secret_post`, 2FA with 12h re-auth, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
-| Bookmark `Hermes` | Dashboard tile → `https://hermes.yuandrk.net` |
+| OIDC app `Hermes Dashboard` | Native public client: PKCE, no secret, `CUSTOM_URL`. 2FA with 12h re-auth. [More](docs/design.md#hermes-a-public-native-client-and-a-bookmark-for-its-tile) |
+| Bookmark `Hermes` | Dashboard tile → `https://hermes.yuandrk.net`, standing in for Hermes Dashboard's missing tile |
 
 **Left out on purpose**, so not drift:
 
 | Resource | Lives in | Why |
 | --- | --- | --- |
-| OIDC app `Hermes Dashboard` | Admin Console | Native public client (PKCE) that `modules/apps` can't express yet. The `Hermes` bookmark gives it a tile. [More](docs/design.md#hermes-oidc-app-stays-in-the-console-a-bookmark-gives-it-a-tile) |
 | OIDC app `okta-mcp-browser` | Admin Console | The okta-mcp-server's own device-code login. An apply that broke it would lock out the tool used to diagnose the breakage. [More](docs/design.md#the-mcps-own-app-stays-out-of-terraform) |
 | Built-in groups, `okta_*` system apps | Okta | Okta adds and removes them on its own |
 | **Users** | Admin Console | Never in Terraform. Group rules sort them into groups. [More](docs/design.md#users-live-outside-terraform-groups-and-rules-live-inside-it) |
@@ -144,6 +145,7 @@ okta-gitops/
 ├── main.tf                     # module calls only
 ├── locals.tf                   # decodes config/*.yaml
 ├── outputs.tf                  # inventory, OIDC client IDs and secrets
+├── imports.tf                  # one-time import blocks for objects made in the Console
 ├── versions.tf · providers.tf · variables.tf
 ├── backend.hcl                 # S3 state, native locking
 ├── modules/                    # each with a README and tests/ (mock provider)
