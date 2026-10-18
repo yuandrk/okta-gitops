@@ -26,11 +26,11 @@ Okta as the SSO for the homelab (Kite; Headlamp was retired 2026-09-26, Hermes 2
 
 | Path | Credential | Where it lives |
 | --- | --- | --- |
-| Terraform provider | SSWS API token | 1Password `op://homelab/okta-gitops/credential`. Local copy in `terraform.tfvars` (gitignored). CI secret `TF_VAR_API_TOKEN` |
+| Terraform provider | SSWS API token of the admin `svc-terraform` (Super Admin) | 1Password `op://homelab/okta-gitops/credential`, next to that admin's login. Local copy in `terraform.tfvars` (gitignored). CI secret `TF_VAR_API_TOKEN` |
 | S3 backend | AWS session | `aws login` locally; GitHub OIDC → role `github-okta-gitops` in CI |
 | okta-mcp-server | device-code login as the admin user, app `okta-mcp-browser` | user-scope MCP config (`OKTA_CLIENT_ID=0oa181pcu93mzNgKr698`) |
 
-**The SSWS token dies after 30 days with no API calls.** A provider `401 Unauthorized` means the token expired, not that the config is broken. Confirm it with the curl check in the [runbook](docs/runbook.md#401-unauthorized-from-the-provider). Rotating it touches **both** `terraform.tfvars` and the GitHub secret.
+**The SSWS token dies after 30 days with no API calls.** A provider `401 Unauthorized` means the token expired, not that the config is broken. Confirm it with the curl check in the [runbook](docs/runbook.md#401-unauthorized-from-the-provider). Rotating it touches **both** `terraform.tfvars` and the GitHub secret. A token acts as the admin who minted it, so it's minted signed in as `svc-terraform`, never from the user's own account ([why](docs/design.md#terraform-runs-as-its-own-admin-svc-terraform)).
 
 The MCP keeps working while Terraform gets 401s. **A working `list_groups` proves nothing about the Terraform token.** Diagnose the two paths separately.
 
@@ -64,6 +64,7 @@ State is at `s3://terraform-state-homelab-yuandrk/prod/terraform.tfstate` (eu-we
 
 - **Built-in groups** (`Everyone`, `Okta Administrators`) and **Okta system apps**. Classify system apps by their internal `name` (`okta_*`, `saasure`, `flow`, …), not by a roster: Okta adds and removes them on its own. Example: `okta_personal_app_migration` appeared and disappeared in summer 2026.
 - **`okta-mcp-browser`** `0oa181pcu93mzNgKr698`: the MCP's own login, a bootstrap credential. An apply that breaks it breaks the MCP. It replaced the `C_mcp` service app on 2026-09-25.
+- **Admin role assignments** (`svc-terraform`, the break-glass admin, the user's own): set in the Console, like users. A Terraform that managed its own Super Admin role could take it away.
 - **Okta's Default global session policy** (the built-in fallback after the managed ones) and **the Admin Console's own sign-on policy**: an apply that broke it could lock every admin out.
 - **The Okta Verify authenticator:** active in the Console, but `ListAuthenticators` returns it with ID `okta_verify`, which the API can't fetch, so it can't be imported. It isn't in the default enrollment policy either. See [design.md → Security baseline](docs/design.md#security-baseline-adopt-first-then-tighten).
 - **Google Authenticator** `aut18ur2y4sw3mjUr698`: #26's apply created it, the API answers its ID with 404, and Terraform forgot it in #27. Not drift; don't re-add it without a probe.

@@ -40,6 +40,28 @@ The Hermes dashboard (`hermes.yuandrk.net`, on the k3s-master host) signed in th
 - Its scopes include `okta.*.manage`. "The MCP is read-only" is a convention here, not an enforced limit.
 - Until 2026-09-25 this was `C_mcp`, a service app with a `private_key_jwt` key in 1Password. It was deleted. User-delegated auth needs no stored key at all.
 
+## Terraform runs as its own admin, `svc-terraform`
+
+An SSWS token acts as the admin who minted it, with whatever roles that admin has at the moment of each call. The first token was minted by the personal admin account, so every Terraform change looked like that person clicking it, and deactivating the account would have killed the token. Okta's own advice is a service account for API tokens, so Terraform has one: `svc-terraform`, created in the Console like any other user.
+
+- **The gain is the identity, not a smaller role.** In the System Log, Terraform's changes are `svc-terraform`'s and a person's are that person's. The personal account holds no long-lived token, and the service account's login is needed only to mint a new one.
+- **It needs Super Admin.** The token needs every role behind what the repo manages. From Okta's [role matrix](https://help.okta.com/oie/en-us/content/topics/security/administrators-admin-comparison.htm):
+
+  | Terraform manages | Permission in the matrix | Roles that have it |
+  | --- | --- | --- |
+  | Groups, group rules | Create groups, Manage group rules | Super, Org |
+  | Apps, tiles, app assignments | Add and configure applications, Assign user access to applications | Super, App |
+  | App sign-on policies and rules | Add/update/delete app sign-in policies | Super, App (only for apps it manages) |
+  | Global session policies and rules | Add/update/delete Global Session Policies | Super, Org |
+  | Authenticators | Configure authenticators | Super, Org |
+  | Enrollment policies | Edit MFA authenticators in policies | Super |
+  | Policy order (`priority`) | Drag and drop policies for prioritization | Super |
+
+  Org Admin plus App Admin still misses the last two rows. A custom role doesn't close the gap: the [permission catalog](https://developer.okta.com/docs/api/openapi/okta-management/guides/permissions) has `okta.policies.manage`, but nothing for authenticators or group rules.
+- **An API token, not OAuth.** Okta recommends OAuth 2.0 service apps for API access, and the provider supports them. But the provider sets an OIDC app's `groups_claim` only with an API token, and Kite's `groups` claim depends on it.
+- **No network restriction on the token.** A token can be limited to an IP range, but GitHub-hosted runners have no fixed addresses.
+- **Its role stays out of Terraform.** A Terraform that managed its own Super Admin role could remove it in one apply, and every later apply would fail before it could put it back.
+
 ## Code layout
 
 The layout follows HashiCorp's [standard module structure](https://developer.hashicorp.com/terraform/language/modules/develop/structure) and [terraform-best-practices.com](https://www.terraform-best-practices.com/):
@@ -112,3 +134,4 @@ Group names, rule expressions and app settings are not secrets. Plain YAML makes
 - **Tokens expire from inactivity.** An SSWS token that isn't used for 30 days dies. A quiet repo comes back with a 401. Keep the token in a password manager and update CI in the same step.
 - **When state points at something the API can't read, let go of it in a PR.** Every plan fails while refreshing a resource that answers 404. A `removed` block with `destroy = false` drops it from state without refreshing it, so the fix goes through the normal review and apply, with no state surgery on a laptop. Terraform 1.10 can't name one `for_each` instance there: forget the whole resource, rename it, and import the healthy instances again.
 - **Keep the auth paths separate.** The IaC token and the admin tooling's login are separate credentials, and one working says nothing about the other.
+- **A Terraform identity needs every role its resources need.** Here that's Super Admin, because only Super Admin edits enrollment policies. At work, split the roots by role instead: apps and their sign-on policies under an App Admin token, groups and rules under Org Admin, and only the security baseline under Super Admin.
