@@ -1,6 +1,7 @@
 name: Terraform Apply
 
-# Runs on every merge to main that touches Terraform code.
+# Runs on every merge to main that touches a Terraform input: code, config, backend
+# or the provider lock file (Renovate bumps the lock file on its own).
 # Gated by a GitHub Environment with required reviewers — someone must approve
 # in the Actions UI before terraform apply executes.
 #
@@ -18,6 +19,7 @@ on:
       - "config/**"
       - "backend.hcl"
       - "modules/**"
+      - ".terraform.lock.hcl"
 
 permissions:
   id-token: write # required for OIDC AWS auth

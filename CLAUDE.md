@@ -79,7 +79,8 @@ Use the `/okta-drift` skill (`.claude/skills/okta-drift`). It runs these steps:
 
 - `plan.yml` runs on PRs and posts the plan as one comment, updated in place on every run. The `plan` check is required. `apply.yml` runs on push to `main`, behind the `prod` environment approval. `drift.yml` is manual only (`workflow_dispatch`, no schedule by the user's choice): read-only plan, fails on drift or error.
 - **`plan.yml` has no `paths:` filter on purpose.** `plan` is a required check; with a filter, a docs-only PR never gets it and stays BLOCKED forever (happened to PR #12). Don't add one back.
-- **`apply.yml`'s `paths:` filter must list every input** (`*.tf`, `config/**`, `backend.hcl`, `modules/**`). A merge touching only unlisted files runs no apply. `apps.yaml` was missing until 2026-08-22. Keep new YAML inputs under `config/` so they're covered.
+- **`apply.yml`'s `paths:` filter must list every input** (`*.tf`, `config/**`, `backend.hcl`, `modules/**`, `.terraform.lock.hcl`). A merge touching only unlisted files runs no apply. `apps.yaml` was missing until 2026-08-22. Keep new YAML inputs under `config/` so they're covered.
+- **Renovate** (`renovate.json`) opens the dependency PRs: GitHub Actions pinned to commit SHAs, the okta provider inside `~> 7.0` through the lock file only, and monthly lock-file maintenance. Don't unpin an action back to a tag. A Renovate PR that only bumps dependencies needs no CHANGELOG line; a provider major bump does (like PR #14).
 - `plan.yml` fails the job if fmt, tflint, module tests, plan or the destroy guard fail. Each step uses `continue-on-error` so the PR comment still gets posted, and a final step checks every outcome.
 - **Destroy guard.** `.github/scripts/destroy-guard.sh` fails `plan` when the plan deletes or replaces any resource, unless the PR has the `allow-destroy` label. Adding or removing a label re-runs the check. A replace usually means a renamed `for_each` key; fix the name rather than reach for the label.
 - **Never put `${{ steps.*.outputs.* }}` inside a script body** (github-script or `run:`). Pass it through `env:` or a file. Plan text contains `${source.login}`, which the JS template literal evaluated, failing `plan` on PR #17.
@@ -90,7 +91,7 @@ Use the `/okta-drift` skill (`.claude/skills/okta-drift`). It runs these steps:
 
 - This file is the **only** agent-guidance file. `AGENTS.md` is a three-line pointer here and must stay that way. It was once a mangled find-and-replace copy. Don't sync the two.
 - `.claude/skills/okta-drift` is the only copy of that skill. Tools sometimes recreate `.agents/skills/…` as a duplicate; don't commit it.
-- Every PR that changes the org or the code adds one dated line to `CHANGELOG.md` (newest first, PR link). It records *what/when* only; reasons go to `docs/design.md`.
+- Every PR that changes the org or the code adds one dated line to `CHANGELOG.md` (newest first, PR link). It records *what/when* only; reasons go to `docs/design.md`. Dependency-only Renovate PRs are the exception.
 - Facts live in one place: inventory in the README, reasoning in `docs/design.md`, procedures in `docs/runbook.md`. Link to them instead of copying. Duplicated facts are what made the docs drift before.
 
 ## Plugins and skills

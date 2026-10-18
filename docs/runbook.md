@@ -140,6 +140,16 @@ terraform import 'module.identity.okta_group.groups["<name>"]' <00g…id>
 terraform plan   # adjust the YAML until this resource shows no changes
 ```
 
+### Review a Renovate PR
+
+Renovate opens dependency PRs on Monday mornings (London time), and refreshes the lock file on the first of the month.
+
+- **GitHub Actions** arrive as one grouped PR, pinned to commit SHAs. The plan should say No changes.
+- **The okta provider inside `~> 7.0`** changes only `.terraform.lock.hcl`. Still read the plan: a minor release can change how a resource is read. After the merge the apply runs and waits for approval, usually with No changes.
+- **A new provider major** (`~> 7.0` → `~> 8.0`) gets its own PR. Read the provider's upgrade guide, check the plan for the resources this repo uses, and add a CHANGELOG line, as in [#14](https://github.com/yuandrk/okta-gitops/pull/14).
+
+The Dependency Dashboard issue lists everything Renovate has pending or held back.
+
 ---
 
 ## Incidents

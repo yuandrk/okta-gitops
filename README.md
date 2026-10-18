@@ -150,6 +150,8 @@ okta-gitops/
 │   ├── identity/               #   okta_group, okta_group_rule
 │   └── apps/                   #   okta_app_oauth + policy, okta_app_bookmark, assignments
 ├── .github/workflows/          # plan (PR) · apply (main, gated) · drift (manual)
+├── .github/scripts/            # destroy-guard.sh, run by plan
+├── renovate.json               # Renovate: dependency PRs, actions pinned to SHAs
 ├── .claude/skills/okta-drift/  # /okta-drift: live org vs YAML, via okta-mcp-server
 └── docs/                       # design.md (why) · runbook.md (how)
 ```
