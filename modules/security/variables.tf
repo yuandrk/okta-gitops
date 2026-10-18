@@ -38,3 +38,48 @@ variable "enrollment" {
     error_message = "Enrollment values must be REQUIRED, OPTIONAL or NOT_ALLOWED."
   }
 }
+
+variable "break_glass" {
+  description = "The break-glass admin's own way in: an enrollment policy and a global session policy for its group, both ahead of everyone else's."
+  type = object({
+    group  = string # a group from config/groups.yaml
+    factor = string # authenticator key the break-glass admin enrolls at first sign-in
+    # A short session: the account is for emergencies, not for staying signed in.
+    session_idle_minutes     = optional(number, 15)
+    session_lifetime_minutes = optional(number, 60)
+  })
+
+  validation {
+    condition     = contains(keys(var.group_ids), var.break_glass.group)
+    error_message = "break_glass.group must be a group defined in config/groups.yaml."
+  }
+
+  validation {
+    condition     = contains([for a in var.authenticators : a.key if a.status == "ACTIVE" && !contains(["okta_password", "okta_email"], a.key)], var.break_glass.factor)
+    error_message = "break_glass.factor must be an ACTIVE authenticator in the list, other than okta_password and okta_email."
+  }
+
+  validation {
+    condition     = var.break_glass.session_idle_minutes > 0 && var.break_glass.session_lifetime_minutes >= var.break_glass.session_idle_minutes
+    error_message = "break_glass session minutes must be positive, with the lifetime at least the idle time."
+  }
+}
+
+variable "session" {
+  description = "The global session policy for everyone else, ahead of Okta's Default Policy."
+  type = object({
+    idle_minutes     = optional(number, 120)
+    lifetime_minutes = optional(number, 720) # 0 = no limit
+    persistent       = optional(bool, false) # keep the session cookie after the browser closes
+  })
+
+  validation {
+    condition     = var.session.idle_minutes > 0 && (var.session.lifetime_minutes == 0 || var.session.lifetime_minutes >= var.session.idle_minutes)
+    error_message = "session.idle_minutes must be positive, and lifetime_minutes 0 (no limit) or at least the idle time."
+  }
+}
+
+variable "group_ids" {
+  description = "Map of group name to Okta group ID (from the identity module) — used to resolve break_glass.group by name."
+  type        = map(string)
+}

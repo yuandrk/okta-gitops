@@ -12,9 +12,13 @@ module "apps" {
   group_ids = module.identity.group_ids
 }
 
-# Authenticators and the default enrollment policy (config/security.yaml).
+# Authenticators, enrollment and global session policies, and the break-glass
+# admin's way in (config/security.yaml).
 module "security" {
   source         = "./modules/security"
   authenticators = local.authenticators
   enrollment     = local.enrollment
+  break_glass    = local.break_glass
+  session        = local.session
+  group_ids      = module.identity.group_ids
 }

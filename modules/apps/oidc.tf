@@ -66,6 +66,13 @@ resource "okta_app_signon_policy_rule" "allow_password" {
   network_connection          = "ANYWHERE"
   re_authentication_frequency = each.value.signon_policy.re_authentication_frequency
   priority                    = 1
+
+  # Admin Console: the rule's "Possession factor constraints". Password plus a second
+  # factor of the kind signon_policy.possession names; left out = any second factor.
+  constraints = each.value.signon_policy.possession == null ? null : [jsonencode({
+    knowledge  = { required = true, types = ["password"] }
+    possession = local.possession_constraints[each.value.signon_policy.possession]
+  })]
 }
 
 # Admin Console: Applications → <app> → Assignments → Assign to Groups

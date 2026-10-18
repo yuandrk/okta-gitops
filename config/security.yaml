@@ -1,18 +1,37 @@
 # The org's security baseline, managed by Terraform (modules/security).
-# Admin Console: Security → Authenticators. Adopted as it was, then changed only
-# through PRs; see docs/design.md for why it's adopt-first.
+# Admin Console: Security. Adopted as it was, then changed only through PRs; see
+# docs/design.md for why it's adopt-first.
 
 # Which authenticators exist and whether they're active. Okta never deletes an
 # authenticator: listing one here adopts it, and removing it deactivates it, which
 # locks out whoever is enrolled in it (the destroy guard flags that).
+# Okta Verify is active too, but can't be imported (README → What's in the org).
 authenticators:
   - key: okta_password
     name: Password
   - key: okta_email
     name: Email
+  - key: google_otp # TOTP, for the break-glass admin only (see enrollment below)
+    name: Google Authenticator
 
 # The default authenticator enrollment policy, per authenticator key:
 # REQUIRED, OPTIONAL or NOT_ALLOWED.
 enrollment:
   okta_password: REQUIRED
   okta_email: NOT_ALLOWED # Email is allowed for recovery only (its authenticator settings)
+  google_otp: NOT_ALLOWED # only the break-glass admin enrolls TOTP, through its own policy
+
+# The break-glass admin's way in: its own enrollment and session policies, ahead of
+# everyone else's. The user is created by hand and added to the group
+# (docs/runbook.md → Break-glass admin).
+break_glass:
+  group: break-glass
+  factor: google_otp # enrolled at first sign-in; the secret lives in 1Password
+  session_idle_minutes: 15
+  session_lifetime_minutes: 60
+
+# The global session policy for everyone else, ahead of Okta's Default Policy.
+session:
+  idle_minutes: 120
+  lifetime_minutes: 720 # 12 h
+  persistent: false

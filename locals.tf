@@ -11,4 +11,6 @@ locals {
   bookmarks      = try(local.apps_config.bookmarks, []) # optional section
   authenticators = local.security_config.authenticators
   enrollment     = try(local.security_config.enrollment, {})
+  break_glass    = local.security_config.break_glass
+  session        = local.security_config.session
 }

@@ -17,4 +17,12 @@ locals {
       for g in b.groups : "${b.label}:${g}" => { app = b.label, group = g }
     }
   ]...)
+
+  # signon_policy.possession → the possession half of an Okta verification-method
+  # constraint. `required = true` is what the API returns, so writing it keeps the
+  # plan clean after an apply.
+  possession_constraints = {
+    DEVICE_BOUND       = { required = true, deviceBound = "REQUIRED" }
+    PHISHING_RESISTANT = { required = true, phishingResistant = "REQUIRED" }
+  }
 }
