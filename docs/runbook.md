@@ -86,7 +86,7 @@ terraform output -json oidc_client_secrets | jq -r '.Grafana'
 
 The app `name` and each `App:Group` pair are `for_each` keys. **Renaming either one destroys and recreates the resource**, and a recreated app gets a new client ID and secret.
 
-For a public client (a native or browser app that holds no secret, like `Hermes Dashboard`), set `type: native` or `type: browser`, `token_endpoint_auth_method: none` and `pkce_required: true`. Validation rejects `none` anywhere else. A public client has no entry in `oidc_client_secrets`, and it can't have a dashboard tile, so add a bookmark if it needs one. See [design.md](design.md#hermes-a-public-native-client-and-a-bookmark-for-its-tile).
+For a public client (a native or browser app that holds no secret, such as a desktop app or a single-page app), set `type: native` or `type: browser`, `token_endpoint_auth_method: none` and `pkce_required: true`. Validation rejects `none` anywhere else. A public client has no entry in `oidc_client_secrets`, and a native one can't have a dashboard tile, so add a bookmark if it needs one. See [design.md](design.md#hermes-retired-2026-10-18).
 
 ### Add a dashboard tile (bookmark)
 

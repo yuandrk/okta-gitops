@@ -5,6 +5,7 @@ Why a thing is the way it is lives in [docs/design.md](docs/design.md), not here
 
 ## 2026-10
 
+- **Breaking:** retire Hermes: delete the `Hermes Dashboard` OIDC app (with its sign-on policy, rule and assignment) and the `Hermes` bookmark tile. `Andriuk corp` stays. Drop the applied import blocks from #24. [#25](https://github.com/yuandrk/okta-gitops/pull/25)
 - Adopt the security baseline as is with import blocks: the Password and Email authenticators and the default enrollment policy (new `modules/security`). Add the `break-glass` group (no rule). [#24](https://github.com/yuandrk/okta-gitops/pull/24)
 - Adopt `Hermes Dashboard` (public native client, PKCE) with an import block; it gets its own 2FA / 12h sign-on policy. `modules/apps` supports public clients. [#23](https://github.com/yuandrk/okta-gitops/pull/23)
 - Renovate config: GitHub Actions pinned to commit SHAs, okta provider updates inside `~> 7.0`, monthly lock-file maintenance; `apply.yml` now also runs when `.terraform.lock.hcl` changes. [#22](https://github.com/yuandrk/okta-gitops/pull/22)

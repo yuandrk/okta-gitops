@@ -2,7 +2,7 @@
 # sign-on policy + rule (2FA / 12h re-auth by default), and group assignments.
 # Consumed by modules/apps; see docs/runbook.md for an example entry.
 #
-# Headlamp was retired 2026-09-26.
+# Retired: Headlamp (2026-09-26), Hermes Dashboard and its tile (2026-10-18).
 apps:
   # Kite — Kubernetes dashboard (homelabops).
   # Access: user.division == "IT" → group IT → Kite (2FA, 12h re-auth).
@@ -21,34 +21,12 @@ apps:
       name: "Kite Sign-On Policy"
       description: "Managed by Terraform — password + second factor"
 
-  # Hermes Dashboard — the agent's web dashboard on the k3s-master host (hermes.yuandrk.net).
-  # A public native client: no secret, PKCE instead. Created in the Admin Console and
-  # adopted with an import block (imports.tf). Its tile is the `Hermes` bookmark below.
-  # Access: user.division == "IT" → group Andriuk corp → Hermes Dashboard (2FA, 12h re-auth).
-  # Client config: ~/.hermes/config.yaml (dashboard.oauth.self_hosted), op://homelab/hermes-dashboard-oidc.
-  - name: Hermes Dashboard
-    type: native
-    grant_types: ["authorization_code", "refresh_token"]
-    token_endpoint_auth_method: none
-    pkce_required: true
-    redirect_uris: ["https://hermes.yuandrk.net/auth/callback"]
-    post_logout_redirect_uris: ["https://hermes.yuandrk.net"]
-    login_uri: "https://hermes.yuandrk.net" # kept from the live app; login_mode stays DISABLED (a native app gets no tile)
-    issuer_mode: CUSTOM_URL
-    groups: ["Andriuk corp"]
-    signon_policy:
-      name: "Hermes Dashboard Sign-On Policy"
-      description: "Managed by Terraform — password + second factor"
-
 # Bookmark apps — dashboard tiles only, no OIDC and no credentials.
 #
-# Hermes needs one because Okta won't give a tile to its OIDC app: showing an app on the
-# end-user dashboard requires IdP-initiated login, which Okta offers only to Web and SPA
-# apps. The Hermes client is `native` (public client, PKCE, no secret), so it is invisible
-# there by construction — no setting changes that. A bookmark links to the same URL and
-# leaves the real app's type, client_id and host config untouched.
-bookmarks:
-  # Access: user.division == "IT" → group Andriuk corp → Hermes tile.
-  - label: Hermes
-    url: https://hermes.yuandrk.net
-    groups: ["Andriuk corp"] # mirrors the OIDC app's own assignment
+# A tile on the end-user dashboard needs IdP-initiated login, which Okta offers only to
+# Web and SPA apps. A `native` app (public client, PKCE) is invisible there no matter how
+# it's configured, so a bookmark to the same URL stands in for its tile. None right now.
+#   - label: Grafana
+#     url: https://grafana.yuandrk.net
+#     groups: ["Andriuk corp"]
+bookmarks: []

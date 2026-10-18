@@ -25,14 +25,12 @@ Headlamp (the k3s dashboard) was the first OIDC app here. The Okta app, its poli
 - **The contract with the cluster is a group name.** The ID token's `groups` claim was read by the k3s API server (`--oidc-groups-claim=groups`), and a `ClusterRoleBinding` in the homelab repo mapped `homelab-admins` → `cluster-admin`. The app assignment decided who could sign in; the binding decided what they could do. Renaming a group here would silently break RBAC there.
 - **A custom-domain issuer is a two-repo change.** `issuer_mode: CUSTOM_URL` serves tokens from `okta.yuandrk.net`, the same domain as the dashboard session, so SSO is silent. But the relying party's issuer must match exactly, or the `iss` claim won't validate.
 
-## Hermes: a public native client, and a bookmark for its tile
+## Hermes (retired 2026-10-18)
 
-The Hermes dashboard (`hermes.yuandrk.net`) runs on the k3s-master host itself, and its OIDC app is a **public native client**: `token_endpoint_auth_method: none` with PKCE, so there is no client secret to store anywhere. It was created in the Console and later adopted with an import block.
+The Hermes dashboard (`hermes.yuandrk.net`, on the k3s-master host) signed in through Okta until its app and tile were deleted through Terraform, because the dashboard wasn't being used. `Andriuk corp`, the group that opened it, was kept as the base group for future apps. Its OIDC app was a **public native client**: `token_endpoint_auth_method: none` with PKCE, so there was no client secret to store anywhere. Two lessons from it still apply:
 
-- `modules/apps` accepts `none` only for `native` and `browser` apps, and only with `pkce_required`. A public client has no secret, so PKCE is what ties the code exchange to the client that started the login. A `web` app with `none` would just be a confidential app with its secret thrown away.
-- It has its own 2FA policy, like Kite: the dashboard drives the agent, so a password alone isn't enough.
-
-Okta gives dashboard tiles only to Web/SPA apps with IdP-initiated login. A native client can never have one. The workaround is `okta_app_bookmark`: a plain link tile that leaves the real app alone.
+- **Only native and browser apps are public clients, and they need PKCE.** `modules/apps` accepts `none` only for `native` and `browser` apps, and only with `pkce_required`. A public client has no secret, so PKCE is what ties the code exchange to the client that started the login. A `web` app with `none` would just be a confidential app with its secret thrown away.
+- **A native app can't have a dashboard tile.** Okta gives tiles only to Web/SPA apps with IdP-initiated login. The workaround is `okta_app_bookmark`: a plain link tile that leaves the real app alone.
 
 ## The MCP's own app stays out of Terraform
 
@@ -65,7 +63,7 @@ Constraints that shaped `modules/security`:
 - **Okta never deletes an authenticator.** `okta_authenticator` adopts an existing one on create and deactivates it on destroy. Removing an entry from `config/security.yaml` would deactivate it for everyone enrolled, so the destroy guard treats that like any other delete.
 - **Settings stay in the Console for now.** The module manages which authenticators exist and whether they're active, not their `settings` JSON. Taking over settings means mirroring each authenticator's whole settings object, because a partial object would overwrite the rest.
 - **Groups are targeted at the policy level.** Sign-on and enrollment policy rules can exclude users only by user ID, while a policy can include groups. So the break-glass admin gets policies of its own, placed ahead of the ones for everyone, instead of an exclusion with a user ID in the YAML.
-- **Okta Verify can't be imported yet.** It isn't in the default enrollment policy. `GET /api/v1/authenticators` lists it with the ID `okta_verify`, and `GET /api/v1/authenticators/okta_verify` answers 404. That is most likely an authenticator Okta offers but that was never set up in this org. Once it's set up in the Console it should get a real `aut…` ID, and then it can be imported.
+- **Okta Verify can't be imported.** It is active in the Console, but `GET /api/v1/authenticators` lists it with the ID `okta_verify`, `GET /api/v1/authenticators/okta_verify` answers 404, and it isn't in the default enrollment policy. Terraform has no ID to adopt, so it stays in the Console. Policies don't need it in state: a possession constraint names a kind of factor, such as device-bound, not an authenticator ID.
 
 ## One Terraform root, no dev/prod
 

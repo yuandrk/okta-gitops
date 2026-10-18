@@ -6,7 +6,8 @@
 #
 # Who gets what: `terraform output inventory` (group → rule → apps / bookmarks).
 groups:
-  # Gates Hermes Dashboard and its tile.
+  # The base group for everyone in the org, kept for future apps. Nothing is assigned
+  # to it since Hermes was retired (2026-10-18).
   - name: Andriuk corp
     description: Main users
     rule: 'user.division == "IT"' # division=IT → auto-assigned
