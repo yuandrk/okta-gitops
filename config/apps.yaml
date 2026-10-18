@@ -4,15 +4,18 @@
 #
 # Headlamp was retired 2026-09-26.
 apps:
-  # Kite — Kubernetes dashboard (homelabops). Client id/secret go to 1Password
-  # `kite-credentials` (okta_client_id / okta_client_secret).
+  # Kite — Kubernetes dashboard (homelabops).
+  # Access: user.division == "IT" → group IT → Kite (2FA, 12h re-auth).
+  # Client id/secret go to 1Password `kite-credentials` (okta_client_id / okta_client_secret).
   - name: Kite
     redirect_uris: ["https://kite.yuandrk.net/api/auth/callback"]
     post_logout_redirect_uris: ["https://kite.yuandrk.net"]
     issuer_mode: CUSTOM_URL                       # issuer https://okta.yuandrk.net (org AS)
     token_endpoint_auth_method: client_secret_post # Kite sends the secret in the POST body
+    # ID token `groups` = the user's groups whose name matches this regex. Okta matches
+    # the whole name (hence `.*IT.*` for a substring), so `^IT$` only spells that out.
     groups_claim:
-      value: "IT" # ID token `groups` = the user's groups matching this regex
+      value: "^IT$"
     groups: ["IT"]
     signon_policy:
       name: "Kite Sign-On Policy"
@@ -26,6 +29,7 @@ apps:
 # there by construction — no setting changes that. A bookmark links to the same URL and
 # leaves the real app's type, client_id and host config untouched.
 bookmarks:
+  # Access: user.division == "IT" → group Andriuk corp → Hermes tile.
   - label: Hermes
     url: https://hermes.yuandrk.net
     groups: ["Andriuk corp"] # mirrors the OIDC app's own assignment

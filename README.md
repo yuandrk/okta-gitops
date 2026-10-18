@@ -21,12 +21,14 @@ Org: `integrator-7752059.okta.com` (developer org), with custom domain `okta.yua
 | --- | --- | --- |
 | Group `Andriuk corp` | Terraform | Rule `user.division == "IT"`. Gates the Hermes tile |
 | Group `IT` | Terraform | Rule `user.division == "IT"`. Gates Kite |
-| OIDC app `Kite` | Terraform | Web, `client_secret_post`, 2FA, `groups` claim (regex `IT`). Secret in 1Password `kite-credentials` |
+| OIDC app `Kite` | Terraform | Web, `client_secret_post`, 2FA, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
 | Bookmark `Hermes` | Terraform | Dashboard tile → `https://hermes.yuandrk.net` |
 | OIDC app `Hermes Dashboard` | Admin Console | Native/PKCE public client. The module can't express it yet |
 | OIDC app `okta-mcp-browser` | Admin Console | Login for the okta-mcp-server (device code). Bootstrap credential |
 | Built-in groups, `okta_*` system apps | Okta | Okta adds and removes these on its own |
 | **Users** | Admin Console | Never in Terraform. Group rules sort them into groups |
+
+The Terraform-managed rows, straight from state: `terraform output inventory` (per group: the rule that fills it, and the apps and tiles it unlocks). History of changes: [CHANGELOG.md](CHANGELOG.md).
 
 Why things are split this way: [docs/design.md](docs/design.md).
 
@@ -63,7 +65,7 @@ terraform plan                              # expect: No changes
 
 ## Making a change
 
-Edit `config/groups.yaml` or `config/apps.yaml`, then open a PR. CI runs fmt, validate, tflint and the module tests, and posts the `terraform plan` as a comment. After the merge, the apply waits for manual approval in the `prod` environment. Recipes are in the [runbook](docs/runbook.md).
+Edit `config/groups.yaml` or `config/apps.yaml`, add a line to [CHANGELOG.md](CHANGELOG.md), then open a PR. CI runs fmt, validate, tflint and the module tests, and posts the `terraform plan` as a comment. After the merge, the apply waits for manual approval in the `prod` environment. Recipes are in the [runbook](docs/runbook.md).
 
 ```text
 okta-gitops/
@@ -85,6 +87,7 @@ okta-gitops/
 
 - [Runbook](docs/runbook.md): add a user, group, app or tile; rotate the token; drift check; state recovery
 - [Design](docs/design.md): the decisions behind this setup, and lessons that carry over to work
+- [Changelog](CHANGELOG.md): what changed when, one line per PR
 - [CLAUDE.md](CLAUDE.md): rules for AI agents working in this repo
 
 ## License

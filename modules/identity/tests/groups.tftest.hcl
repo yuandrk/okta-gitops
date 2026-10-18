@@ -27,6 +27,11 @@ run "group_with_rule_gets_a_rule" {
     condition     = okta_group_rule.rules["admins"].name == "auto-assign-admins"
     error_message = "Rule name should be auto-assign-<group>."
   }
+
+  assert {
+    condition     = output.rules == { admins = "user.division == \"IT\"" }
+    error_message = "rules output must map only groups with a rule to their expression."
+  }
 }
 
 run "duplicate_group_names_are_rejected" {

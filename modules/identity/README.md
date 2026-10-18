@@ -40,4 +40,5 @@ terraform -chdir=modules/identity test
 | ---- | ----------- |
 | group\_ids | Map of group name to Okta group ID |
 | group\_rule\_ids | Map of group name to its group-rule ID (only for groups with a rule) |
+| rules | Map of group name to its auto-assign rule expression (only for groups with a rule) |
 <!-- END_TF_DOCS -->

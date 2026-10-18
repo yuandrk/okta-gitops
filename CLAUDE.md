@@ -44,6 +44,7 @@ tflint --init && tflint --recursive --config "$PWD/.tflint.hcl"
 for m in modules/*/; do terraform -chdir="$m" init -backend=false && terraform -chdir="$m" test; done   # mocked, no Okta calls
 terraform-docs modules/identity && terraform-docs modules/apps   # after changing module variables/outputs
 terraform plan
+terraform output inventory                   # per group: rule, apps, bookmarks (what TF manages)
 terraform apply                              # only after the user has reviewed the plan
 ```
 
@@ -87,6 +88,7 @@ Use the `/okta-drift` skill (`.claude/skills/okta-drift`). It runs these steps:
 
 - This file is the **only** agent-guidance file. `AGENTS.md` is a three-line pointer here and must stay that way. It was once a mangled find-and-replace copy. Don't sync the two.
 - `.claude/skills/okta-drift` is the only copy of that skill. Tools sometimes recreate `.agents/skills/…` as a duplicate; don't commit it.
+- Every PR that changes the org or the code adds one dated line to `CHANGELOG.md` (newest first, PR link). It records *what/when* only; reasons go to `docs/design.md`.
 - Facts live in one place: inventory in the README, reasoning in `docs/design.md`, procedures in `docs/runbook.md`. Link to them instead of copying. Duplicated facts are what made the docs drift before.
 
 ## Plugins and skills
