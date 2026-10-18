@@ -1,12 +1,17 @@
 # Unit tests — mocked provider, no Okta API calls.
 # Run: terraform -chdir=modules/security init -backend=false && terraform -chdir=modules/security test
 
-mock_provider "okta" {}
+mock_provider "okta" {
+  mock_data "okta_group" {
+    defaults = { id = "00gEVERYONE" }
+  }
+}
 
 variables {
   authenticators = [
     { key = "okta_password", name = "Password" },
     { key = "okta_verify", name = "Okta Verify" },
+    { key = "google_otp", name = "Google Authenticator" },
     { key = "phone_number", name = "Phone", status = "INACTIVE" },
   ]
 
@@ -14,14 +19,25 @@ variables {
     okta_password = "REQUIRED"
     okta_verify   = "OPTIONAL"
   }
+
+  group_ids = { "break-glass" = "00gBREAKGLASS" }
+
+  break_glass = { group = "break-glass", factor = "google_otp" }
+
+  session = {}
 }
 
 run "authenticators_are_keyed_by_key" {
   command = plan
 
   assert {
-    condition     = toset(keys(okta_authenticator.this)) == toset(["okta_password", "okta_verify", "phone_number"])
+    condition     = toset(keys(okta_authenticator.this)) == toset(["okta_password", "okta_verify", "google_otp", "phone_number"])
     error_message = "Authenticators must be keyed by their key."
+  }
+
+  assert {
+    condition     = okta_authenticator.this["google_otp"].name == "Google Authenticator" && !okta_authenticator.this["google_otp"].legacy_ignore_name
+    error_message = "Names must be managed (legacy_ignore_name = false), or a new authenticator is created without one."
   }
 
   assert {
@@ -95,4 +111,76 @@ run "unknown_enrollment_key_is_rejected" {
   }
 
   expect_failures = [var.enrollment]
+}
+
+run "break_glass_gets_its_own_enrollment_policy" {
+  command = plan
+
+  assert {
+    condition     = okta_policy_mfa.break_glass.groups_included == toset(["00gBREAKGLASS"]) && okta_policy_mfa.break_glass.priority == 1
+    error_message = "The break-glass enrollment policy must target only its group, ahead of the default."
+  }
+
+  assert {
+    condition     = okta_policy_mfa.break_glass.google_otp.enroll == "REQUIRED" && okta_policy_mfa.break_glass.okta_password.enroll == "REQUIRED" && okta_policy_mfa.break_glass.okta_verify == null
+    error_message = "Break-glass must require the password and its own factor, and nothing else."
+  }
+
+  assert {
+    condition     = okta_policy_rule_mfa.break_glass.enroll == "LOGIN"
+    error_message = "Break-glass must be asked to enroll at sign-in."
+  }
+}
+
+run "session_policies_put_break_glass_first" {
+  command = plan
+
+  assert {
+    condition     = okta_policy_signon.break_glass.priority == 1 && okta_policy_signon.break_glass.groups_included == toset(["00gBREAKGLASS"])
+    error_message = "The break-glass session policy must come first and target only its group."
+  }
+
+  assert {
+    condition     = okta_policy_signon.everyone.priority == 2 && okta_policy_signon.everyone.groups_included == toset(["00gEVERYONE"])
+    error_message = "The session policy for everyone must come second and target the Everyone group."
+  }
+
+  assert {
+    condition = (
+      okta_policy_rule_signon.break_glass.session_lifetime == 60 && !okta_policy_rule_signon.break_glass.session_persistent &&
+      okta_policy_rule_signon.everyone.session_idle == 120 && okta_policy_rule_signon.everyone.session_lifetime == 720 &&
+      !okta_policy_rule_signon.everyone.session_persistent && okta_policy_rule_signon.everyone.primary_factor == "PASSWORD_IDP_ANY_FACTOR"
+    )
+    error_message = "Session defaults: break-glass 15/60 min, everyone 120/720 min, no persistent cookies, any factor."
+  }
+}
+
+run "break_glass_unknown_group_is_rejected" {
+  command = plan
+
+  variables {
+    break_glass = { group = "breakglass", factor = "google_otp" }
+  }
+
+  expect_failures = [var.break_glass]
+}
+
+run "break_glass_factor_must_be_active" {
+  command = plan
+
+  variables {
+    break_glass = { group = "break-glass", factor = "phone_number" }
+  }
+
+  expect_failures = [var.break_glass]
+}
+
+run "session_lifetime_below_idle_is_rejected" {
+  command = plan
+
+  variables {
+    session = { idle_minutes = 120, lifetime_minutes = 60 }
+  }
+
+  expect_failures = [var.session]
 }

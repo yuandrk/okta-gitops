@@ -20,6 +20,9 @@ apps:
     signon_policy:
       name: "Kite Sign-On Policy"
       description: "Managed by Terraform — password + second factor"
+      # The second factor must be device-bound: Okta Verify passes, SMS and email
+      # never will. PHISHING_RESISTANT needs FastPass or a passkey (docs/design.md).
+      possession: DEVICE_BOUND
 
 # Bookmark apps — dashboard tiles only, no OIDC and no credentials.
 #

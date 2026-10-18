@@ -41,6 +41,11 @@ variable "apps" {
       factor_mode = optional(string, "2FA")
       # How long a sign-in is trusted before Okta asks again (ISO-8601 duration).
       re_authentication_frequency = optional(string, "PT12H")
+      # What the second factor must be (an Okta possession constraint), on top of the
+      # password. DEVICE_BOUND: Okta Verify or a security key, never SMS, voice or
+      # email. PHISHING_RESISTANT: FastPass on the same device, or a security key.
+      # Left out: any second factor.
+      possession = optional(string)
     })
   }))
 
@@ -95,6 +100,16 @@ variable "apps" {
   validation {
     condition     = alltrue([for a in var.apps : can(regex("^PT[0-9]+[HM]$", a.signon_policy.re_authentication_frequency))])
     error_message = "signon_policy.re_authentication_frequency must be an ISO-8601 duration in hours or minutes, e.g. PT12H or PT30M."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.apps : a.signon_policy.possession == null || contains(["DEVICE_BOUND", "PHISHING_RESISTANT"], coalesce(a.signon_policy.possession, "-"))])
+    error_message = "signon_policy.possession must be DEVICE_BOUND or PHISHING_RESISTANT, or left out."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.apps : a.signon_policy.possession == null || a.signon_policy.factor_mode == "2FA"])
+    error_message = "signon_policy.possession needs factor_mode 2FA: it constrains the second factor."
   }
 
   # --- References to config/groups.yaml --------------------------------------------

@@ -54,6 +54,59 @@ run "signon_rule_defaults_to_mfa" {
     condition     = okta_app_signon_policy_rule.allow_password["Grafana"].factor_mode == "2FA" && okta_app_signon_policy_rule.allow_password["Grafana"].re_authentication_frequency == "PT12H"
     error_message = "An app that doesn't set factor_mode must get 2FA with a 12h re-auth."
   }
+
+  assert {
+    condition     = okta_app_signon_policy_rule.allow_password["Grafana"].constraints == null
+    error_message = "Without signon_policy.possession, the rule must not constrain the second factor."
+  }
+}
+
+run "device_bound_possession_becomes_a_constraint" {
+  command = plan
+
+  variables {
+    apps = [{
+      name          = "Grafana"
+      redirect_uris = ["https://grafana.example.com/callback"]
+      signon_policy = { name = "p", description = "d", possession = "DEVICE_BOUND" }
+    }]
+  }
+
+  assert {
+    condition = jsondecode(okta_app_signon_policy_rule.allow_password["Grafana"].constraints[0]) == {
+      knowledge  = { required = true, types = ["password"] }
+      possession = { required = true, deviceBound = "REQUIRED" }
+    }
+    error_message = "DEVICE_BOUND must become password + a required device-bound possession factor."
+  }
+}
+
+run "unknown_possession_is_rejected" {
+  command = plan
+
+  variables {
+    apps = [{
+      name          = "Grafana"
+      redirect_uris = ["https://grafana.example.com/callback"]
+      signon_policy = { name = "p", description = "d", possession = "HARDWARE" }
+    }]
+  }
+
+  expect_failures = [var.apps]
+}
+
+run "possession_with_1fa_is_rejected" {
+  command = plan
+
+  variables {
+    apps = [{
+      name          = "Grafana"
+      redirect_uris = ["https://grafana.example.com/callback"]
+      signon_policy = { name = "p", description = "d", factor_mode = "1FA", possession = "DEVICE_BOUND" }
+    }]
+  }
+
+  expect_failures = [var.apps]
 }
 
 run "auth_method_and_groups_claim_are_passed_through" {
