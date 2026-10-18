@@ -106,6 +106,7 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | The Admin Console's sign-on policy | Admin Console | An apply that broke it could lock every admin out of the Console, so changing it stays a deliberate decision made by hand |
 | Authenticator `Okta Verify` | Admin Console | Active, but the API lists it with ID `okta_verify`, which can't be fetched, so it can't be imported. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
 | **Users** | Admin Console | Never in Terraform. Group rules sort them into groups. [More](docs/design.md#users-live-outside-terraform-groups-and-rules-live-inside-it) |
+| Admin `svc-terraform` and its Super Admin role | Admin Console | The service account that owns Terraform's API token. A Terraform that managed its own role could take it away. [More](docs/design.md#terraform-runs-as-its-own-admin-svc-terraform) |
 
 What changed when: [CHANGELOG.md](CHANGELOG.md).
 
@@ -122,7 +123,7 @@ terraform output inventory                     # who gets what, from state
 ```
 
 > [!IMPORTANT]
-> **Two independent credentials.** Terraform uses an SSWS API token that dies after 30 days without API calls, so a `401 Unauthorized` means the token expired, not that the config broke. The okta-mcp-server has its own device-code login, so a working MCP proves nothing about Terraform's token. [Check the token](docs/runbook.md#before-anything-credentials) directly.
+> **Two independent credentials.** Terraform uses an SSWS API token, minted by its own admin `svc-terraform`, that dies after 30 days without API calls, so a `401 Unauthorized` means the token expired, not that the config broke. The okta-mcp-server has its own device-code login, so a working MCP proves nothing about Terraform's token. [Check the token](docs/runbook.md#before-anything-credentials) directly.
 
 ## Making a change
 

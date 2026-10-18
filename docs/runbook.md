@@ -17,10 +17,10 @@ aws sts get-caller-identity || aws login
 # Okta SSWS token, for the Terraform provider. Never echo the token itself.
 TOK=$(op read "op://homelab/okta-gitops/credential")
 curl -s -H "Authorization: SSWS $TOK" -H "Accept: application/json" \
-  "https://integrator-7752059.okta.com/api/v1/users/me" | jq -r '.errorSummary // "token OK"'
+  "https://integrator-7752059.okta.com/api/v1/users/me" | jq -r '.errorSummary // "token OK: \(.profile.login)"'
 ```
 
-`terraform.tfvars` must contain the same token that 1Password has. See [Rotate the Okta API token](#rotate-the-okta-api-token).
+The login it prints is the token's owner, which should be [`svc-terraform`](#create-terraforms-admin-svc-terraform). `terraform.tfvars` must contain the same token that 1Password has. See [Rotate the Okta API token](#rotate-the-okta-api-token).
 
 ---
 
@@ -181,6 +181,15 @@ The break-glass admin is a second super admin that doesn't depend on your phone.
 
 Test it every quarter, the same way as step 5. A break-glass account that has quietly stopped working is worse than none, because you find out during an incident.
 
+### Create Terraform's admin (`svc-terraform`)
+
+Terraform's API token belongs to an admin of its own, not to your account ([why](design.md#terraform-runs-as-its-own-admin-svc-terraform)). One-time setup:
+
+1. Admin Console → Directory → People → Add Person: first name `svc`, last name `terraform`, username and email on a mailbox you control (plus addressing works). Leave **Division** empty, so no group rule picks the account up. Set a long random password and save the login in the 1Password item `okta-gitops`, next to the token.
+2. Security → Administrators → Add administrator: `svc-terraform`, Super Administrator.
+3. In a private window, sign in as `svc-terraform`. The Admin Console asks for a second factor: enroll Okta Verify, as a second account in the app.
+4. Mint its token, roll it out and revoke your own account's token with [Rotate the Okta API token](#rotate-the-okta-api-token). The credentials check above should then print the `svc-terraform` login.
+
 ### Review a Renovate PR
 
 Renovate opens dependency PRs on Monday mornings (London time), and refreshes the lock file on the first of the month.
@@ -207,10 +216,11 @@ The MCP tools keep working through a 401, because they use a different credentia
 
 ### Rotate the Okta API token
 
-It has to be updated in **both** places, or CI stays broken:
+A token acts as the admin who minted it, so mint it as `svc-terraform`, never from your own account. It has to be updated in **both** places, or CI stays broken:
 
 ```bash
-# 1. Admin Console → Security → API → Tokens → Create Token → save into 1Password (okta-gitops)
+# 1. Private window, signed in as svc-terraform (login in 1Password okta-gitops):
+#    Admin Console → Security → API → Tokens → Create Token → save into 1Password (okta-gitops)
 
 # 2. Local: write it into terraform.tfvars without printing it
 TOK=$(op read "op://homelab/okta-gitops/credential") \
@@ -221,7 +231,7 @@ TOK=$(op read "op://homelab/okta-gitops/credential") \
 op read "op://homelab/okta-gitops/credential" | gh secret set TF_VAR_API_TOKEN
 ```
 
-Then run `terraform plan`. You should see No changes; the token isn't stored in state.
+Then run `terraform plan`. You should see No changes; the token isn't stored in state. If the old token is still live, revoke it in Security → API → Tokens (the list shows who created each one), so only one exists.
 
 ### Stale state lock
 

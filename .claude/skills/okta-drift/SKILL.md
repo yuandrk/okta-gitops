@@ -72,7 +72,8 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
   ```
   SSWS tokens die after 30 days without API calls. Do **not** start debugging the `.tf` files or the
   variables — send the user to `docs/runbook.md` → "Rotate the Okta API token", which covers
-  rotating it in both `terraform.tfvars` and the `TF_VAR_API_TOKEN` GitHub secret.
+  minting it as `svc-terraform` and rotating it in both `terraform.tfvars` and the
+  `TF_VAR_API_TOKEN` GitHub secret.
   This is easy to misread from inside this skill: steps 1–3 above will have just succeeded,
   because the MCP authenticates as `okta-mcp-browser` via a user-delegated device-code login
   and is unaffected by the SSWS token. A working `list_groups` says nothing about whether Terraform can authenticate.
