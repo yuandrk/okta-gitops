@@ -171,12 +171,12 @@ Anything that tightens sign-in follows the same protocol:
 
 ### Set up and test the break-glass admin
 
-The break-glass admin is a second super admin that doesn't depend on your phone. Its policies come first in `config/security.yaml`, and its TOTP secret lives in 1Password.
+The break-glass admin is a second super admin that doesn't depend on your phone. Its policies come first in `config/security.yaml`, and its credentials live in 1Password.
 
 1. Admin Console → Directory → People → Add Person, with a mailbox you control. Set a long random password and save both in a 1Password item.
 2. Security → Administrators → Add administrator: the new user, Super Administrator.
 3. Directory → Groups → `break-glass` → Assign people: the new user. Nobody else belongs in this group.
-4. In a private window, sign in as the new user. Okta asks you to set up Google Authenticator: add the QR code to the same 1Password item as a one-time password, then enter the code.
+4. In a private window, sign in as the new user and enroll the factor named in `break_glass.factor`. Keep its secret in the same 1Password item. No factor is set yet ([why](design.md#security-baseline-adopt-first-then-tighten)), so for now the account has only a password, and the Admin Console's own sign-on policy may not let it in.
 5. Open the Admin Console as that user, then sign out.
 
 Test it every quarter, the same way as step 5. A break-glass account that has quietly stopped working is worse than none, because you find out during an incident.

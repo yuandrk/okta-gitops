@@ -92,9 +92,8 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | Group `IT` | Rule `user.division == "IT"`. Gates Kite |
 | Group `break-glass` | No rule: membership is set by hand. Holds only the [break-glass admin](docs/runbook.md#set-up-and-test-the-break-glass-admin) |
 | OIDC app `Kite` | Web, `client_secret_post`, password + a device-bound factor (Okta Verify, never SMS or email), 12h re-auth, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
-| Authenticators `Password`, `Email`, `Google Authenticator` | Active. Email is allowed for recovery only; Google Authenticator (TOTP) is for the break-glass admin only. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
-| Default enrollment policy | Password `REQUIRED`; Email and Google Authenticator `NOT_ALLOWED` |
-| Enrollment policy `Break-glass` | Group `break-glass` only: password and Google Authenticator `REQUIRED`, enrolled at first sign-in |
+| Authenticators `Password`, `Email` | Active. Email is allowed for recovery only. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
+| Default enrollment policy | Password `REQUIRED`, Email `NOT_ALLOWED` |
 | Session policies `Break-glass`, `Everyone` | Ahead of Okta's Default Policy. Break-glass: 15 min idle, 60 min max. Everyone: 2 h idle, 12 h max, no persistent cookie. MFA is left to each app's policy |
 
 **Left out on purpose**, so not drift:

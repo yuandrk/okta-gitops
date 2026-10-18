@@ -66,6 +66,7 @@ State is at `s3://terraform-state-homelab-yuandrk/prod/terraform.tfstate` (eu-we
 - **`okta-mcp-browser`** `0oa181pcu93mzNgKr698`: the MCP's own login, a bootstrap credential. An apply that breaks it breaks the MCP. It replaced the `C_mcp` service app on 2026-09-25.
 - **Okta's Default global session policy** (the built-in fallback after the managed ones) and **the Admin Console's own sign-on policy**: an apply that broke it could lock every admin out.
 - **The Okta Verify authenticator:** active in the Console, but `ListAuthenticators` returns it with ID `okta_verify`, which the API can't fetch, so it can't be imported. It isn't in the default enrollment policy either. See [design.md → Security baseline](docs/design.md#security-baseline-adopt-first-then-tighten).
+- **Google Authenticator** `aut18ur2y4sw3mjUr698`: #26's apply created it, the API answers its ID with 404, and Terraform forgot it in #27. Not drift; don't re-add it without a probe.
 - **Deleted, so drift if they reappear:** `C_mcp` `0oa146h4n3xbeQS7j698` (2026-09-25); the inactive leftovers `Hermes Dashboard` `0oa16pzv08uDQV7Fy698` (web, abandoned first attempt) and `AI Harmess` `0oa16pzy2koEUVYf1698` (2026-09-26); the native `Hermes Dashboard` `0oa16q11mp5oL7Brc698` and the bookmark `Hermes` `0oa16r0m9psZy4qCf698` (retired 2026-10-18).
 
 ## Drift reconciliation

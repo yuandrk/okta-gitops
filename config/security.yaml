@@ -6,28 +6,25 @@
 # authenticator: listing one here adopts it, and removing it deactivates it, which
 # locks out whoever is enrolled in it (the destroy guard flags that).
 # Okta Verify is active too, but can't be imported (README → What's in the org).
+# Google Authenticator was tried for break-glass and isn't usable here (docs/design.md).
 authenticators:
   - key: okta_password
     name: Password
   - key: okta_email
     name: Email
-  - key: google_otp # TOTP, for the break-glass admin only (see enrollment below)
-    name: Google Authenticator
 
 # The default authenticator enrollment policy, per authenticator key:
 # REQUIRED, OPTIONAL or NOT_ALLOWED.
 enrollment:
   okta_password: REQUIRED
   okta_email: NOT_ALLOWED # Email is allowed for recovery only (its authenticator settings)
-  # google_otp is left out on purpose: only the break-glass policy offers TOTP. Setting
-  # it here sent an update that Okta refused, to avoid a lockout (#26's apply).
 
-# The break-glass admin's way in: its own enrollment and session policies, ahead of
-# everyone else's. The user is created by hand and added to the group
-# (docs/runbook.md → Break-glass admin).
+# The break-glass admin's way in: its own session policy (and, once a factor is
+# chosen, its own enrollment policy), ahead of everyone else's. The user is created by
+# hand and added to the group (docs/runbook.md → Break-glass admin).
 break_glass:
   group: break-glass
-  factor: google_otp # enrolled at first sign-in; the secret lives in 1Password
+  # factor: not chosen yet. Google Authenticator didn't work in this org.
   session_idle_minutes: 15
   session_lifetime_minutes: 60
 

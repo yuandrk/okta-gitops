@@ -31,17 +31,17 @@ run "authenticators_are_keyed_by_key" {
   command = plan
 
   assert {
-    condition     = toset(keys(okta_authenticator.this)) == toset(["okta_password", "okta_verify", "google_otp", "phone_number"])
+    condition     = toset(keys(okta_authenticator.by_key)) == toset(["okta_password", "okta_verify", "google_otp", "phone_number"])
     error_message = "Authenticators must be keyed by their key."
   }
 
   assert {
-    condition     = okta_authenticator.this["google_otp"].name == "Google Authenticator" && !okta_authenticator.this["google_otp"].legacy_ignore_name
+    condition     = okta_authenticator.by_key["google_otp"].name == "Google Authenticator" && !okta_authenticator.by_key["google_otp"].legacy_ignore_name
     error_message = "Names must be managed (legacy_ignore_name = false), or a new authenticator is created without one."
   }
 
   assert {
-    condition     = okta_authenticator.this["okta_verify"].status == "ACTIVE" && okta_authenticator.this["phone_number"].status == "INACTIVE"
+    condition     = okta_authenticator.by_key["okta_verify"].status == "ACTIVE" && okta_authenticator.by_key["phone_number"].status == "INACTIVE"
     error_message = "status must default to ACTIVE and pass through when set."
   }
 }
@@ -117,17 +117,17 @@ run "break_glass_gets_its_own_enrollment_policy" {
   command = plan
 
   assert {
-    condition     = okta_policy_mfa.break_glass.groups_included == toset(["00gBREAKGLASS"]) && okta_policy_mfa.break_glass.priority == 1
+    condition     = okta_policy_mfa.break_glass[0].groups_included == toset(["00gBREAKGLASS"]) && okta_policy_mfa.break_glass[0].priority == 1
     error_message = "The break-glass enrollment policy must target only its group, ahead of the default."
   }
 
   assert {
-    condition     = okta_policy_mfa.break_glass.google_otp.enroll == "REQUIRED" && okta_policy_mfa.break_glass.okta_password.enroll == "REQUIRED" && okta_policy_mfa.break_glass.okta_verify == null
+    condition     = okta_policy_mfa.break_glass[0].google_otp.enroll == "REQUIRED" && okta_policy_mfa.break_glass[0].okta_password.enroll == "REQUIRED" && okta_policy_mfa.break_glass[0].okta_verify == null
     error_message = "Break-glass must require the password and its own factor, and nothing else."
   }
 
   assert {
-    condition     = okta_policy_rule_mfa.break_glass.enroll == "LOGIN"
+    condition     = okta_policy_rule_mfa.break_glass[0].enroll == "LOGIN"
     error_message = "Break-glass must be asked to enroll at sign-in."
   }
 }
@@ -183,4 +183,22 @@ run "session_lifetime_below_idle_is_rejected" {
   }
 
   expect_failures = [var.session]
+}
+
+run "no_break_glass_factor_means_no_enrollment_policy" {
+  command = plan
+
+  variables {
+    break_glass = { group = "break-glass" }
+  }
+
+  assert {
+    condition     = length(okta_policy_mfa.break_glass) == 0 && length(okta_policy_rule_mfa.break_glass) == 0
+    error_message = "Without break_glass.factor there must be no break-glass enrollment policy."
+  }
+
+  assert {
+    condition     = okta_policy_signon.break_glass.priority == 1
+    error_message = "The break-glass session policy must still be created."
+  }
 }
