@@ -4,7 +4,7 @@ Guidance for AI agents working in this repo. Humans: start at [README.md](README
 
 ## Purpose
 
-Okta as the SSO for the homelab (Hermes, Kite; Headlamp was retired 2026-09-26), managed with the [okta/okta](https://registry.terraform.io/providers/okta/okta/latest/docs) provider (`~> 7.0`). The repo is also a rehearsal ground for an Okta rollout at work, and a learning/portfolio project. Keep the per-resource comments that map each block to its Okta API call and Admin Console screen.
+Okta as the SSO for the homelab (Kite; Headlamp was retired 2026-09-26, Hermes 2026-10-18), managed with the [okta/okta](https://registry.terraform.io/providers/okta/okta/latest/docs) provider (`~> 7.0`). The repo is also a rehearsal ground for an Okta rollout at work, and a learning/portfolio project. Keep the per-resource comments that map each block to its Okta API call and Admin Console screen.
 
 - What's in the org and who manages it: [README → What's in the org](README.md#whats-in-the-org)
 - Why things are done this way: [docs/design.md](docs/design.md)
@@ -63,8 +63,8 @@ State is at `s3://terraform-state-homelab-yuandrk/prod/terraform.tfstate` (eu-we
 
 - **Built-in groups** (`Everyone`, `Okta Administrators`) and **Okta system apps**. Classify system apps by their internal `name` (`okta_*`, `saasure`, `flow`, …), not by a roster: Okta adds and removes them on its own. Example: `okta_personal_app_migration` appeared and disappeared in summer 2026.
 - **`okta-mcp-browser`** `0oa181pcu93mzNgKr698`: the MCP's own login, a bootstrap credential. An apply that breaks it breaks the MCP. It replaced the `C_mcp` service app on 2026-09-25.
-- **The Okta Verify authenticator:** `ListAuthenticators` returns it with ID `okta_verify`, which the API can't fetch, so it can't be imported. It isn't in the default enrollment policy either. See [design.md → Security baseline](docs/design.md#security-baseline-adopt-first-then-tighten).
-- **Deleted, so drift if they reappear:** `C_mcp` `0oa146h4n3xbeQS7j698` (2026-09-25), and the inactive leftovers `Hermes Dashboard` `0oa16pzv08uDQV7Fy698` (web, abandoned first attempt) and `AI Harmess` `0oa16pzy2koEUVYf1698` (2026-09-26).
+- **The Okta Verify authenticator:** active in the Console, but `ListAuthenticators` returns it with ID `okta_verify`, which the API can't fetch, so it can't be imported. It isn't in the default enrollment policy either. See [design.md → Security baseline](docs/design.md#security-baseline-adopt-first-then-tighten).
+- **Deleted, so drift if they reappear:** `C_mcp` `0oa146h4n3xbeQS7j698` (2026-09-25); the inactive leftovers `Hermes Dashboard` `0oa16pzv08uDQV7Fy698` (web, abandoned first attempt) and `AI Harmess` `0oa16pzy2koEUVYf1698` (2026-09-26); the native `Hermes Dashboard` `0oa16q11mp5oL7Brc698` and the bookmark `Hermes` `0oa16r0m9psZy4qCf698` (retired 2026-10-18).
 
 ## Drift reconciliation
 

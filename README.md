@@ -11,7 +11,7 @@
 
 ## Why this exists
 
-1. **Real SSO for the homelab.** Signing in to the Hermes dashboard and to Kite (the k3s dashboard) goes through Okta, and the Okta side lives here.
+1. **Real SSO for the homelab.** Signing in to Kite (the k3s dashboard) goes through Okta, and the Okta side lives here.
 2. **A rehearsal for Okta at work.** Import-before-apply, drift checks and MCP-assisted admin get worked out here first, on a developer org where mistakes are cheap.
 3. **Learning and a portfolio.** Each resource is annotated with the Okta API call and Admin Console screen it maps to.
 
@@ -40,11 +40,7 @@ flowchart LR
         G2["group <b>IT</b><br/>rule: division == IT"]
         G1["group <b>Andriuk corp</b><br/>rule: division == IT"]
         K["OIDC app <b>Kite</b><br/>→ kite.yuandrk.net · 2FA"]
-        HA["OIDC app <b>Hermes Dashboard</b><br/>native, PKCE · 2FA"]
-        B["bookmark tile <b>Hermes</b><br/>→ hermes.yuandrk.net"]
         G2 -->|assigned| K
-        G1 -->|assigned| HA
-        G1 -->|assigned| B
     end
 
     U -->|auto-assign| G2
@@ -54,7 +50,7 @@ flowchart LR
     class U console
 ```
 
-The dashed box lives in the Admin Console: users are never in Terraform. Hermes signs in through its native app, which can't have a dashboard tile, so the bookmark gives it one. More in [What's in the org](#whats-in-the-org).
+The dashed box lives in the Admin Console: users are never in Terraform. `Andriuk corp` opens nothing yet; it's the base group for future apps. More in [What's in the org](#whats-in-the-org).
 
 ### How a change ships
 
@@ -92,12 +88,10 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 
 | Resource | Details |
 | --- | --- |
-| Group `Andriuk corp` | Rule `user.division == "IT"`. Gates Hermes Dashboard and its tile |
+| Group `Andriuk corp` | Rule `user.division == "IT"`. Opens nothing since Hermes was retired; the base group for future apps |
 | Group `IT` | Rule `user.division == "IT"`. Gates Kite |
 | Group `break-glass` | No rule: membership is set by hand. Reserved for the break-glass admin |
 | OIDC app `Kite` | Web, `client_secret_post`, 2FA with 12h re-auth, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
-| OIDC app `Hermes Dashboard` | Native public client: PKCE, no secret, `CUSTOM_URL`. 2FA with 12h re-auth. [More](docs/design.md#hermes-a-public-native-client-and-a-bookmark-for-its-tile) |
-| Bookmark `Hermes` | Dashboard tile → `https://hermes.yuandrk.net`, standing in for Hermes Dashboard's missing tile |
 | Authenticators `Password`, `Email` | Active. Email is allowed for recovery only. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
 | Default enrollment policy | Password `REQUIRED`, Email `NOT_ALLOWED` |
 
@@ -107,7 +101,7 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | --- | --- | --- |
 | OIDC app `okta-mcp-browser` | Admin Console | The okta-mcp-server's own device-code login. An apply that broke it would lock out the tool used to diagnose the breakage. [More](docs/design.md#the-mcps-own-app-stays-out-of-terraform) |
 | Built-in groups, `okta_*` system apps | Okta | Okta adds and removes them on its own |
-| Authenticator `Okta Verify` | Okta | Not in the enrollment policy, and the API lists it with ID `okta_verify`, which can't be fetched, so it can't be imported. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
+| Authenticator `Okta Verify` | Admin Console | Active, but the API lists it with ID `okta_verify`, which can't be fetched, so it can't be imported. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
 | **Users** | Admin Console | Never in Terraform. Group rules sort them into groups. [More](docs/design.md#users-live-outside-terraform-groups-and-rules-live-inside-it) |
 
 What changed when: [CHANGELOG.md](CHANGELOG.md).
