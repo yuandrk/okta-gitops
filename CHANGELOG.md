@@ -5,6 +5,7 @@ Why a thing is the way it is lives in [docs/design.md](docs/design.md), not here
 
 ## 2026-10
 
+- Adopt the security baseline as is with import blocks: the Password and Email authenticators and the default enrollment policy (new `modules/security`). Add the `break-glass` group (no rule). [#24](https://github.com/yuandrk/okta-gitops/pull/24)
 - Adopt `Hermes Dashboard` (public native client, PKCE) with an import block; it gets its own 2FA / 12h sign-on policy. `modules/apps` supports public clients. [#23](https://github.com/yuandrk/okta-gitops/pull/23)
 - Renovate config: GitHub Actions pinned to commit SHAs, okta provider updates inside `~> 7.0`, monthly lock-file maintenance; `apply.yml` now also runs when `.terraform.lock.hcl` changes. [#22](https://github.com/yuandrk/okta-gitops/pull/22)
 - Destroy guard: a plan that deletes or replaces anything fails the `plan` check unless the PR has the `allow-destroy` label. The plan comment is now one comment, updated on each run. [#21](https://github.com/yuandrk/okta-gitops/pull/21)

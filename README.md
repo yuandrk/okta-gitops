@@ -94,9 +94,12 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | --- | --- |
 | Group `Andriuk corp` | Rule `user.division == "IT"`. Gates Hermes Dashboard and its tile |
 | Group `IT` | Rule `user.division == "IT"`. Gates Kite |
+| Group `break-glass` | No rule: membership is set by hand. Reserved for the break-glass admin |
 | OIDC app `Kite` | Web, `client_secret_post`, 2FA with 12h re-auth, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
 | OIDC app `Hermes Dashboard` | Native public client: PKCE, no secret, `CUSTOM_URL`. 2FA with 12h re-auth. [More](docs/design.md#hermes-a-public-native-client-and-a-bookmark-for-its-tile) |
 | Bookmark `Hermes` | Dashboard tile → `https://hermes.yuandrk.net`, standing in for Hermes Dashboard's missing tile |
+| Authenticators `Password`, `Email` | Active. Email is allowed for recovery only. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
+| Default enrollment policy | Password `REQUIRED`, Email `NOT_ALLOWED` |
 
 **Left out on purpose**, so not drift:
 
@@ -104,6 +107,7 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | --- | --- | --- |
 | OIDC app `okta-mcp-browser` | Admin Console | The okta-mcp-server's own device-code login. An apply that broke it would lock out the tool used to diagnose the breakage. [More](docs/design.md#the-mcps-own-app-stays-out-of-terraform) |
 | Built-in groups, `okta_*` system apps | Okta | Okta adds and removes them on its own |
+| Authenticator `Okta Verify` | Okta | Not in the enrollment policy, and the API lists it with ID `okta_verify`, which can't be fetched, so it can't be imported. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
 | **Users** | Admin Console | Never in Terraform. Group rules sort them into groups. [More](docs/design.md#users-live-outside-terraform-groups-and-rules-live-inside-it) |
 
 What changed when: [CHANGELOG.md](CHANGELOG.md).
@@ -141,7 +145,8 @@ Something that already exists in Okta gets [imported before the apply](docs/runb
 okta-gitops/
 ├── config/                     # day-to-day edits
 │   ├── groups.yaml             #   groups + the rules that fill them
-│   └── apps.yaml               #   OIDC apps + bookmark tiles
+│   ├── apps.yaml               #   OIDC apps + bookmark tiles
+│   └── security.yaml           #   authenticators + the default enrollment policy
 ├── main.tf                     # module calls only
 ├── locals.tf                   # decodes config/*.yaml
 ├── outputs.tf                  # inventory, OIDC client IDs and secrets
@@ -150,7 +155,8 @@ okta-gitops/
 ├── backend.hcl                 # S3 state, native locking
 ├── modules/                    # each with a README and tests/ (mock provider)
 │   ├── identity/               #   okta_group, okta_group_rule
-│   └── apps/                   #   okta_app_oauth + policy, okta_app_bookmark, assignments
+│   ├── apps/                   #   okta_app_oauth + policy, okta_app_bookmark, assignments
+│   └── security/               #   okta_authenticator, okta_policy_mfa_default
 ├── .github/workflows/          # plan (PR) · apply (main, gated) · drift (manual)
 ├── .github/scripts/            # destroy-guard.sh, run by plan
 ├── renovate.json               # Renovate: dependency PRs, actions pinned to SHAs

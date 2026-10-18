@@ -53,6 +53,20 @@ The layout follows HashiCorp's [standard module structure](https://developer.has
 - **Tests without an org.** `terraform test` with `mock_provider "okta"` checks the `for_each` key shapes (state addresses) and the validations. On the first run it found a real bug: `signon_policy.description` was optional in the module but required by the provider.
 - **Names are state.** Resource and module names (`module.identity`, `okta_group.groups`, `okta_app_oauth.oidc`…) predate these conventions and are kept on purpose. Renaming them would need `moved` blocks for no functional gain.
 
+## Security baseline: adopt first, then tighten
+
+Authenticators and enrollment policies decide whether anyone can sign in at all, so a wrong apply here locks people out instead of breaking one app. The baseline moves into Terraform in two steps:
+
+1. **Adopt it as is.** Import the live authenticators and the default enrollment policy, and adjust the YAML until the plan shows imports and no change in behaviour. From then on, every change to the baseline is a reviewed diff.
+2. **Tighten it in separate PRs.** Each one has a plan that shows exactly what changes, and the break-glass admin as a way back in.
+
+Constraints that shaped `modules/security`:
+
+- **Okta never deletes an authenticator.** `okta_authenticator` adopts an existing one on create and deactivates it on destroy. Removing an entry from `config/security.yaml` would deactivate it for everyone enrolled, so the destroy guard treats that like any other delete.
+- **Settings stay in the Console for now.** The module manages which authenticators exist and whether they're active, not their `settings` JSON. Taking over settings means mirroring each authenticator's whole settings object, because a partial object would overwrite the rest.
+- **Groups are targeted at the policy level.** Sign-on and enrollment policy rules can exclude users only by user ID, while a policy can include groups. So the break-glass admin gets policies of its own, placed ahead of the ones for everyone, instead of an exclusion with a user ID in the YAML.
+- **Okta Verify can't be imported yet.** It isn't in the default enrollment policy. `GET /api/v1/authenticators` lists it with the ID `okta_verify`, and `GET /api/v1/authenticators/okta_verify` answers 404. That is most likely an authenticator Okta offers but that was never set up in this org. Once it's set up in the Console it should get a real `aut…` ID, and then it can be imported.
+
 ## One Terraform root, no dev/prod
 
 There is one org and one person. A second environment would add a second state, IAM trust scope and org noise, without adding safety. The modules are kept separate so an environment split stays cheap if it's ever needed.

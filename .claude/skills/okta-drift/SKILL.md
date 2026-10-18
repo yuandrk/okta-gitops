@@ -32,6 +32,7 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
 
 - `config/groups.yaml` → `okta_group` + `okta_group_rule` (managed group names)
 - `config/apps.yaml` → `okta_app_oauth` + signon policy/rule + group assignment (managed app labels)
+- `config/security.yaml` → `okta_authenticator` (managed authenticator keys) + `okta_policy_mfa_default` (the default enrollment policy). Check these with `terraform plan`, not the inventory diff. The Okta Verify authenticator is listed with ID `okta_verify` and can't be fetched, so it's unmanaged, not drift (CLAUDE.md → "Deliberately unmanaged").
 
 ### 3. Classify every live resource
 
