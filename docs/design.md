@@ -25,11 +25,14 @@ Headlamp (the k3s dashboard) was the first OIDC app here. The Okta app, its poli
 - **The contract with the cluster is a group name.** The ID token's `groups` claim was read by the k3s API server (`--oidc-groups-claim=groups`), and a `ClusterRoleBinding` in the homelab repo mapped `homelab-admins` → `cluster-admin`. The app assignment decided who could sign in; the binding decided what they could do. Renaming a group here would silently break RBAC there.
 - **A custom-domain issuer is a two-repo change.** `issuer_mode: CUSTOM_URL` serves tokens from `okta.yuandrk.net`, the same domain as the dashboard session, so SSO is silent. But the relying party's issuer must match exactly, or the `iss` claim won't validate.
 
-## Hermes OIDC app stays in the Console; a bookmark gives it a tile
+## Hermes: a public native client, and a bookmark for its tile
 
-The Hermes dashboard (`hermes.yuandrk.net`) runs on the k3s-master host itself, and its OIDC app is a **public native client**: `token_endpoint_auth_method: none` with PKCE. `modules/apps` only models confidential web apps, so importing Hermes would fight the live config. Until the module grows `pkce_required` and `token_endpoint_auth_method` inputs, the app is managed in the Console.
+The Hermes dashboard (`hermes.yuandrk.net`) runs on the k3s-master host itself, and its OIDC app is a **public native client**: `token_endpoint_auth_method: none` with PKCE, so there is no client secret to store anywhere. It was created in the Console and later adopted with an import block.
 
-Okta gives dashboard tiles only to Web/SPA apps with IdP-initiated login. A native client can never have one. The workaround is `okta_app_bookmark`: a plain link tile, managed in Terraform, that leaves the real app alone.
+- `modules/apps` accepts `none` only for `native` and `browser` apps, and only with `pkce_required`. A public client has no secret, so PKCE is what ties the code exchange to the client that started the login. A `web` app with `none` would just be a confidential app with its secret thrown away.
+- It has its own 2FA policy, like Kite: the dashboard drives the agent, so a password alone isn't enough.
+
+Okta gives dashboard tiles only to Web/SPA apps with IdP-initiated login. A native client can never have one. The workaround is `okta_app_bookmark`: a plain link tile that leaves the real app alone.
 
 ## The MCP's own app stays out of Terraform
 
