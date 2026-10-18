@@ -64,6 +64,14 @@ Constraints that shaped `modules/security`:
 - **Settings stay in the Console for now.** The module manages which authenticators exist and whether they're active, not their `settings` JSON. Taking over settings means mirroring each authenticator's whole settings object, because a partial object would overwrite the rest.
 - **Groups are targeted at the policy level.** Sign-on and enrollment policy rules can exclude users only by user ID, while a policy can include groups. So the break-glass admin gets policies of its own, placed ahead of the ones for everyone, instead of an exclusion with a user ID in the YAML.
 - **Okta Verify can't be imported.** It is active in the Console, but `GET /api/v1/authenticators` lists it with the ID `okta_verify`, `GET /api/v1/authenticators/okta_verify` answers 404, and it isn't in the default enrollment policy. Terraform has no ID to adopt, so it stays in the Console. Policies don't need it in state: a possession constraint names a kind of factor, such as device-bound, not an authenticator ID.
+- **Authenticator names are managed.** The provider ignores `name` by default (`legacy_ignore_name`), which also makes it create a new authenticator with an empty name. The module turns that off.
+
+What the tightening adds:
+
+- **A break-glass admin that doesn't depend on your phone.** Okta Verify on one phone was the only second factor, so losing the phone meant losing the org. The break-glass admin is a second super admin whose factor is a TOTP secret kept in 1Password. Its enrollment and session policies come first and target only its group, so a mistake in the policies for everyone can't take it down too.
+- **Session policies set limits; app policies set factors.** The session policy for everyone starts a session with whatever the app's sign-on policy asked for (`PASSWORD_IDP_ANY_FACTOR`) and leaves MFA to the app policies. It only caps the session (2 h idle, 12 h maximum) and drops persistent cookies. Okta's Default Policy stays last as the fallback, and the Admin Console's own sign-on policy is left alone, because breaking it would lock every admin out.
+- **Kite: device-bound, not yet phishing-resistant.** Device-bound means Okta Verify or a security key, never SMS, voice or email. Phishing-resistant would need Okta FastPass on the device you sign in from, or a passkey: a push to a phone can be approved for a phishing page. Okta Verify push is the only factor enrolled today, so `PHISHING_RESISTANT` would lock you out of Kite. Enroll a passkey first, then change one line in `config/apps.yaml`.
+- **Constraint JSON spells out `required = true`.** The provider always sends `required` for each constraint class, because the SDK field has no `omitempty`, and the API returns `true` for the classes in use. Writing it in the module keeps the plan clean after an apply.
 
 ## One Terraform root, no dev/prod
 

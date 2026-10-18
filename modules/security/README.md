@@ -1,14 +1,16 @@
 # security
 
-The org's security baseline: authenticators and the default authenticator enrollment policy. Fed from [`config/security.yaml`](../../config/security.yaml).
+The org's security baseline: authenticators, enrollment policies and global session policies, with the break-glass admin's own way in. Fed from [`config/security.yaml`](../../config/security.yaml).
 
 | File | Resources | Keyed by |
 | --- | --- | --- |
-| `main.tf` | `okta_authenticator`, `okta_policy_mfa_default` | authenticator `key`; the policy is a singleton |
+| `main.tf` | `okta_authenticator`, `okta_policy_mfa_default`, `okta_policy_mfa.break_glass` + rule | authenticator `key`; the policies are singletons |
+| `sessions.tf` | `okta_policy_signon.break_glass` / `.everyone` + their rules | singletons |
 
 - Okta never deletes an authenticator. Creating `okta_authenticator` adopts the existing one, and destroying it **deactivates** it, which locks out whoever relies on it. The destroy guard in `plan.yml` flags that.
 - `okta_policy_mfa_default` is the org's built-in enrollment policy: it is imported, never created, and can't be deleted.
-- Authenticator `settings` aren't managed yet; the Console keeps them.
+- The break-glass policies (priority 1) target only its group. The `Everyone` session policy comes next, and Okta's Default Policy stays last. Rules can't exclude a group, so the break-glass admin gets policies of its own.
+- Authenticator `settings` aren't managed yet; the Console keeps them. Names are (`legacy_ignore_name = false`).
 
 Keys are state addresses: changing an authenticator's `key` means deactivating one and adopting another.
 
