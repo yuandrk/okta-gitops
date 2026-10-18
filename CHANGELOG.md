@@ -1,0 +1,29 @@
+# Changelog
+
+What changed in the org and the code, and when. One line per merged PR, newest first. Add yours in the same PR.
+Why a thing is the way it is lives in [docs/design.md](docs/design.md), not here.
+
+## 2026-10
+
+- Add `inventory` output (group → rule → apps/bookmarks), Kite `groups` claim regex `IT` → `^IT$` (same match, now explicit), more validation tests, readability pass. [#19](https://github.com/yuandrk/okta-gitops/pull/19)
+
+## 2026-09
+
+- Add Kite OIDC app and the `IT` group that gates it. [#18](https://github.com/yuandrk/okta-gitops/pull/18)
+- **Breaking:** retire Headlamp (Okta app + `homelab-admins` group). [#17](https://github.com/yuandrk/okta-gitops/pull/17)
+- Require MFA on Headlamp; sign-on factor becomes configurable (`factor_mode`, default 2FA). [#16](https://github.com/yuandrk/okta-gitops/pull/16)
+- Manual drift workflow (`drift.yml`); drop deleted inactive apps from docs. [#15](https://github.com/yuandrk/okta-gitops/pull/15)
+- okta provider `~> 6.0` → `~> 7.0` (6.10.0 → 7.0.0), plan → No changes. [#14](https://github.com/yuandrk/okta-gitops/pull/14)
+- Standard Terraform layout, variable validation, module tests, tflint; YAML moves to `config/`. [#13](https://github.com/yuandrk/okta-gitops/pull/13)
+- Consolidate docs into README, design and runbook. [#12](https://github.com/yuandrk/okta-gitops/pull/12)
+
+## 2026-08
+
+- Bookmark apps; dashboard tile for the Hermes dashboard. [#11](https://github.com/yuandrk/okta-gitops/pull/11)
+- Finish Headlamp `CUSTOM_URL` migration; consolidate agent docs. [#10](https://github.com/yuandrk/okta-gitops/pull/10)
+
+## 2026-06
+
+- Delete the `Test` group. [#9](https://github.com/yuandrk/okta-gitops/pull/9)
+- Add a `Test` group to exercise the apply on `main`. [#8](https://github.com/yuandrk/okta-gitops/pull/8)
+- Reconcile Terraform with live Okta: `Andriuk corp` group, Headlamp drift. [#7](https://github.com/yuandrk/okta-gitops/pull/7)

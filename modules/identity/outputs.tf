@@ -3,6 +3,11 @@ output "group_ids" {
   value       = { for k, v in okta_group.groups : k => v.id }
 }
 
+output "rules" {
+  description = "Map of group name to its auto-assign rule expression (only for groups with a rule)"
+  value       = { for k, v in okta_group_rule.rules : k => v.expression_value }
+}
+
 output "group_rule_ids" {
   description = "Map of group name to its group-rule ID (only for groups with a rule)"
   value       = { for k, v in okta_group_rule.rules : k => v.id }

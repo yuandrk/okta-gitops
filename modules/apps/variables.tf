@@ -41,10 +41,14 @@ variable "apps" {
     })
   }))
 
+  # --- Keys (state addresses) ------------------------------------------------------
+
   validation {
     condition     = length(distinct([for a in var.apps : a.name])) == length(var.apps)
     error_message = "App names must be unique — the name is the for_each key (state address)."
   }
+
+  # --- Enum values ---------------------------------------------------------------
 
   validation {
     condition     = alltrue([for a in var.apps : contains(["web", "native", "browser", "service"], a.type)])
@@ -61,10 +65,19 @@ variable "apps" {
     error_message = "login_mode must be one of: DISABLED, SPEC, OKTA."
   }
 
+  # --- Client auth & sign-in -------------------------------------------------------
+
   validation {
     condition     = alltrue([for a in var.apps : contains(["client_secret_basic", "client_secret_post"], a.token_endpoint_auth_method)])
     error_message = "token_endpoint_auth_method must be client_secret_basic or client_secret_post (the module manages confidential clients only)."
   }
+
+  validation {
+    condition     = alltrue([for a in var.apps : a.login_mode == "DISABLED" || a.login_uri != null])
+    error_message = "login_uri is required when login_mode is not DISABLED (IdP-initiated login needs a target)."
+  }
+
+  # --- Sign-on policy --------------------------------------------------------------
 
   validation {
     condition     = alltrue([for a in var.apps : contains(["1FA", "2FA"], a.signon_policy.factor_mode)])
@@ -76,10 +89,7 @@ variable "apps" {
     error_message = "signon_policy.re_authentication_frequency must be an ISO-8601 duration in hours or minutes, e.g. PT12H or PT30M."
   }
 
-  validation {
-    condition     = alltrue([for a in var.apps : a.login_mode == "DISABLED" || a.login_uri != null])
-    error_message = "login_uri is required when login_mode is not DISABLED (IdP-initiated login needs a target)."
-  }
+  # --- References to config/groups.yaml --------------------------------------------
 
   validation {
     condition = alltrue(flatten([
@@ -87,11 +97,6 @@ variable "apps" {
     ]))
     error_message = "Every group in apps[*].groups must be a group defined in config/groups.yaml. Unknown: ${join(", ", distinct(flatten([for a in var.apps : [for g in a.groups : "${a.name} → ${g}" if !contains(keys(var.group_ids), g)]])))}."
   }
-}
-
-variable "group_ids" {
-  description = "Map of group name to Okta group ID (from the identity module) — used to resolve group assignments by name."
-  type        = map(string)
 }
 
 # Bookmark apps are plain dashboard tiles — a label and a URL, no OIDC, no secrets.
@@ -124,4 +129,9 @@ variable "bookmarks" {
     ]))
     error_message = "Every group in bookmarks[*].groups must be a group defined in config/groups.yaml. Unknown: ${join(", ", distinct(flatten([for b in var.bookmarks : [for g in b.groups : "${b.label} → ${g}" if !contains(keys(var.group_ids), g)]])))}."
   }
+}
+
+variable "group_ids" {
+  description = "Map of group name to Okta group ID (from the identity module) — used to resolve group assignments by name."
+  type        = map(string)
 }

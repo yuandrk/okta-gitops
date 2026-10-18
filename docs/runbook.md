@@ -50,7 +50,7 @@ Edit `config/groups.yaml`:
   rule: 'user.division == "IT" and user.userType == "Contractor"'   # optional
 ```
 
-Then open a PR, review the plan comment, merge, and approve the apply in the `prod` environment.
+Then add a line to [CHANGELOG.md](../CHANGELOG.md), open a PR, review the plan comment, merge, and approve the apply in the `prod` environment. Afterwards `terraform output inventory` shows the group with its rule.
 
 To change an existing rule expression, the provider deactivates the rule, updates it, and reactivates it. In the plan this shows as `ACTIVE → INACTIVE → ACTIVE`, which is expected.
 

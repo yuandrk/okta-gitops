@@ -3,11 +3,15 @@
 # Language to auto-assign users by profile attributes.
 #
 # Reference: https://developer.okta.com/docs/reference/okta-expression-language/
+#
+# Who gets what: `terraform output inventory` (group → rule → apps / bookmarks).
 groups:
+  # Gates the Hermes dashboard tile.
   - name: Andriuk corp
     description: Main users
     rule: 'user.division == "IT"' # division=IT → auto-assigned
 
+  # Gates Kite (the k3s dashboard); also the value of Kite's `groups` claim.
   - name: IT
     description: Homelab admins (Kite)
     rule: 'user.division == "IT"'

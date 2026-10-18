@@ -172,3 +172,83 @@ run "bookmark_with_unknown_group_is_rejected" {
 
   expect_failures = [var.bookmarks]
 }
+
+run "duplicate_app_names_are_rejected" {
+  command = plan
+
+  variables {
+    apps = [
+      { name = "Grafana", redirect_uris = ["https://a.example.com/cb"], signon_policy = { name = "p", description = "d" } },
+      { name = "Grafana", redirect_uris = ["https://b.example.com/cb"], signon_policy = { name = "q", description = "d" } },
+    ]
+  }
+
+  expect_failures = [var.apps]
+}
+
+run "invalid_app_type_is_rejected" {
+  command = plan
+
+  variables {
+    apps = [{
+      name          = "Grafana"
+      type          = "spa"
+      redirect_uris = ["https://grafana.example.com/callback"]
+      signon_policy = { name = "p", description = "d" }
+    }]
+  }
+
+  expect_failures = [var.apps]
+}
+
+run "non_iso_reauth_frequency_is_rejected" {
+  command = plan
+
+  variables {
+    apps = [{
+      name          = "Grafana"
+      redirect_uris = ["https://grafana.example.com/callback"]
+      signon_policy = { name = "p", description = "d", re_authentication_frequency = "12h" }
+    }]
+  }
+
+  expect_failures = [var.apps]
+}
+
+run "duplicate_bookmark_labels_are_rejected" {
+  command = plan
+
+  variables {
+    bookmarks = [
+      { label = "Wiki", url = "https://wiki.example.com" },
+      { label = "Wiki", url = "https://wiki2.example.com" },
+    ]
+  }
+
+  expect_failures = [var.bookmarks]
+}
+
+run "plain_http_bookmark_is_rejected" {
+  command = plan
+
+  variables {
+    bookmarks = [{ label = "Wiki", url = "http://wiki.example.com" }]
+  }
+
+  expect_failures = [var.bookmarks]
+}
+
+run "group_access_lists_apps_and_bookmarks_per_group" {
+  command = plan
+
+  assert {
+    condition = (
+      toset(keys(output.group_access)) == toset(["admins", "viewers"]) &&
+      output.group_access["admins"].apps == tolist(["Grafana"]) &&
+      length(output.group_access["admins"].bookmarks) == 0 &&
+      output.group_access["viewers"].apps == tolist(["Grafana"]) &&
+      output.group_access["viewers"].bookmarks == tolist(["Wiki"])
+    )
+    error_message = "group_access must map each assigned group to its apps and bookmarks."
+  }
+}

@@ -50,4 +50,5 @@ terraform -chdir=modules/apps test
 | ---- | ----------- |
 | client\_ids | Map of app name to its OIDC client ID |
 | client\_secrets | Map of app name to its OIDC client secret |
+| group\_access | Map of group name to the OIDC apps and bookmarks assigned to it (only groups with at least one) |
 <!-- END_TF_DOCS -->
