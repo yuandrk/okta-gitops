@@ -5,6 +5,7 @@ Why a thing is the way it is lives in [docs/design.md](docs/design.md), not here
 
 ## 2026-10
 
+- README rework: highlights, access and delivery diagrams, inventory split into managed vs left out on purpose; add the MIT `LICENSE` file. [#20](https://github.com/yuandrk/okta-gitops/pull/20)
 - Add `inventory` output (group → rule → apps/bookmarks), Kite `groups` claim regex `IT` → `^IT$` (same match, now explicit), more validation tests, readability pass. [#19](https://github.com/yuandrk/okta-gitops/pull/19)
 
 ## 2026-09
