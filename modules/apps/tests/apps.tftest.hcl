@@ -80,7 +80,55 @@ run "auth_method_and_groups_claim_are_passed_through" {
   }
 }
 
-run "public_client_auth_method_is_rejected" {
+run "native_public_client_with_pkce_is_accepted" {
+  command = plan
+
+  variables {
+    apps = [
+      {
+        name          = "Grafana"
+        redirect_uris = ["https://grafana.example.com/callback"]
+        signon_policy = { name = "p", description = "d" }
+      },
+      {
+        name                       = "Hermes"
+        type                       = "native"
+        redirect_uris              = ["https://hermes.example.com/callback"]
+        token_endpoint_auth_method = "none"
+        pkce_required              = true
+        signon_policy              = { name = "q", description = "d" }
+      },
+    ]
+  }
+
+  assert {
+    condition     = okta_app_oauth.oidc["Hermes"].token_endpoint_auth_method == "none" && okta_app_oauth.oidc["Hermes"].pkce_required
+    error_message = "A public client must reach the app with auth method none and PKCE on."
+  }
+
+  assert {
+    condition     = keys(nonsensitive(output.client_secrets)) == ["Grafana"]
+    error_message = "client_secrets must leave out public clients, which have no secret."
+  }
+}
+
+run "public_client_without_pkce_is_rejected" {
+  command = plan
+
+  variables {
+    apps = [{
+      name                       = "Hermes"
+      type                       = "native"
+      redirect_uris              = ["https://hermes.example.com/callback"]
+      token_endpoint_auth_method = "none"
+      signon_policy              = { name = "p", description = "d" }
+    }]
+  }
+
+  expect_failures = [var.apps]
+}
+
+run "public_web_client_is_rejected" {
   command = plan
 
   variables {
@@ -88,6 +136,22 @@ run "public_client_auth_method_is_rejected" {
       name                       = "Grafana"
       redirect_uris              = ["https://grafana.example.com/callback"]
       token_endpoint_auth_method = "none"
+      pkce_required              = true
+      signon_policy              = { name = "p", description = "d" }
+    }]
+  }
+
+  expect_failures = [var.apps]
+}
+
+run "unsupported_auth_method_is_rejected" {
+  command = plan
+
+  variables {
+    apps = [{
+      name                       = "Grafana"
+      redirect_uris              = ["https://grafana.example.com/callback"]
+      token_endpoint_auth_method = "client_secret_jwt"
       signon_policy              = { name = "p", description = "d" }
     }]
   }

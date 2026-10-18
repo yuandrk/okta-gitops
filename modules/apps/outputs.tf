@@ -14,7 +14,7 @@ output "client_ids" {
 }
 
 output "client_secrets" {
-  description = "Map of app name to its OIDC client secret"
-  value       = { for k, v in okta_app_oauth.oidc : k => v.client_secret }
+  description = "Map of app name to its OIDC client secret (confidential clients only: a public client has none)"
+  value       = { for k, v in okta_app_oauth.oidc : k => v.client_secret if local.apps_by_name[k].token_endpoint_auth_method != "none" }
   sensitive   = true
 }
