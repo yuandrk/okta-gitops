@@ -99,6 +99,15 @@ bookmarks:
     groups: ["Andriuk corp"]
 ```
 
+### Retire an app, group or tile
+
+1. Remove the entry from `config/apps.yaml` or `config/groups.yaml`, along with any reference to a removed group in apps and bookmarks. Validation rejects group names that no longer exist.
+2. Open a PR. The destroy guard fails the `plan` check and lists everything the plan would delete.
+3. Check the list, then add the `allow-destroy` label. The check re-runs and passes.
+4. Merge, then approve the apply.
+
+If the guard fires on a PR that wasn't meant to delete anything, a `for_each` key changed: an app, group or bookmark was renamed. Put the old name back. To rename on purpose, add a `moved` block for every address that changes (for an app: the app, its policy, its rule and its `App:Group` assignments), so the plan shows moves instead of replaces.
+
 ### Check the code locally (what CI runs)
 
 ```bash

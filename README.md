@@ -17,7 +17,7 @@
 
 ## Highlights
 
-- **Changes go through a PR.** CI runs fmt, validate, tflint and the module tests, then posts the `terraform plan` as a PR comment. After the merge, the apply waits for a manual approval in the `prod` environment.
+- **Changes go through a PR.** CI runs fmt, validate, tflint and the module tests, then posts the `terraform plan` as a PR comment. A plan that deletes or replaces anything fails unless the PR has the `allow-destroy` label. After the merge, the apply waits for a manual approval in the `prod` environment.
 - **Data, not code.** Day-to-day edits are YAML in [`config/`](config). Validation rejects unknown group names, bad enum values and duplicate keys at plan time, before Okta sees anything.
 - **Tested without an org.** `terraform test` with a mocked provider checks the `for_each` keys (state addresses) and the validations. No token, no Okta calls.
 - **People aren't code.** Users are created in the Admin Console (at a company, SCIM from HR). Group rules in Okta Expression Language sort them into groups by profile attribute.
@@ -69,7 +69,7 @@ sequenceDiagram
     GH->>CI: plan.yml
     Note over CI: fmt · validate · tflint · tests
     CI->>Okta: refresh, read-only
-    CI-->>GH: plan as a PR comment
+    CI-->>GH: plan + destroy guard as a PR comment
     Me->>GH: review and merge
     GH->>CI: apply.yml
     CI-->>Me: waits for approval (prod)
@@ -132,7 +132,7 @@ terraform output inventory                     # who gets what, from state
 Something that already exists in Okta gets [imported before the apply](docs/runbook.md#adopt-something-that-was-created-in-the-console). Otherwise the apply tries to create a duplicate.
 
 > [!WARNING]
-> Names are state addresses. Renaming an app, a group or a bookmark destroys and recreates it, and a recreated OIDC app gets a new client ID and secret.
+> Names are state addresses. Renaming an app, a group or a bookmark destroys and recreates it, and a recreated OIDC app gets a new client ID and secret. The destroy guard fails the PR's `plan` check when that happens: [retire or rename on purpose](docs/runbook.md#retire-an-app-group-or-tile).
 
 ## Repository layout
 
