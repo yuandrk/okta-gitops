@@ -1,0 +1,18 @@
+# The org's security baseline, managed by Terraform (modules/security).
+# Admin Console: Security → Authenticators. Adopted as it was, then changed only
+# through PRs; see docs/design.md for why it's adopt-first.
+
+# Which authenticators exist and whether they're active. Okta never deletes an
+# authenticator: listing one here adopts it, and removing it deactivates it, which
+# locks out whoever is enrolled in it (the destroy guard flags that).
+authenticators:
+  - key: okta_password
+    name: Password
+  - key: okta_email
+    name: Email
+
+# The default authenticator enrollment policy, per authenticator key:
+# REQUIRED, OPTIONAL or NOT_ALLOWED.
+enrollment:
+  okta_password: REQUIRED
+  okta_email: NOT_ALLOWED # Email is allowed for recovery only (its authenticator settings)

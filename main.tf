@@ -11,3 +11,10 @@ module "apps" {
   bookmarks = local.bookmarks
   group_ids = module.identity.group_ids
 }
+
+# Authenticators and the default enrollment policy (config/security.yaml).
+module "security" {
+  source         = "./modules/security"
+  authenticators = local.authenticators
+  enrollment     = local.enrollment
+}

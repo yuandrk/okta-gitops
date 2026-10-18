@@ -152,6 +152,16 @@ The usual way is an import block, so the import is reviewed in the PR and CI app
 
 From a laptop, the CLI does the same: `terraform import '<address>' <id>`, then `terraform plan` until that resource shows no changes.
 
+### Change an authenticator or the enrollment policy
+
+Edit `config/security.yaml`:
+
+- `authenticators[].status` turns one on or off. `INACTIVE` fails while any policy still uses it.
+- `enrollment` sets `REQUIRED`, `OPTIONAL` or `NOT_ALLOWED` per authenticator key on the default enrollment policy. An authenticator has to be active before anything but `NOT_ALLOWED` is accepted.
+- Removing an authenticator from the list **deactivates** it (Okta can't delete one), so the destroy guard blocks the PR. Everyone enrolled in it loses that factor. Usually you want `status: INACTIVE`, or nothing at all.
+
+Before applying a change that tightens sign-in, keep an admin session open in another browser, and check that the break-glass admin can still get in.
+
 ### Review a Renovate PR
 
 Renovate opens dependency PRs on Monday mornings (London time), and refreshes the lock file on the first of the month.
