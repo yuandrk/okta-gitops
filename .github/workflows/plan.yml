@@ -2,16 +2,26 @@ name: Terraform Plan
 
 # Runs on every PR to main (no paths: filter). `plan` is a required check, so a
 # filtered-out PR (docs only) would never get it and could never merge.
-# Posts a plan summary as a PR comment so reviewers can see what will change.
+# Posts the plan as one PR comment, updated on every run, so reviewers can see what will change.
+# A plan that deletes or replaces anything fails unless the PR has the `allow-destroy`
+# label; labeled/unlabeled re-run the check so the label takes effect.
 #
 # Required GitHub repository setup (one-time):
 #   Secrets : TF_VAR_API_TOKEN  — Okta API token
 #   Variables: TF_VAR_ORG_NAME  — e.g. "integrator-7752059"
 #              AWS_ROLE_ARN     — IAM role ARN for OIDC (see docs/design.md → CI)
+#   Label   : allow-destroy     — lets a PR delete or replace resources (destroy guard)
 
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+# One plan at a time per PR, so a push and a label change don't race for the S3 lock.
+# No cancel-in-progress: a plan killed mid-run can leave the lock behind.
+concurrency:
+  group: plan-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
 
 permissions:
   id-token: write      # required for OIDC AWS auth
@@ -26,9 +36,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No wrapper: the plan goes to files (plan.txt, tfplan), not to step outputs.
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "~1.10"
+          terraform_wrapper: false
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -68,40 +80,61 @@ jobs:
           done
         continue-on-error: true
 
+      # plan.txt gets stderr too, so a failed plan's error reaches the comment.
+      # shell: bash runs with pipefail, so tee doesn't hide a failed plan.
       - name: Terraform plan
         id: plan
-        run: terraform plan -no-color
+        shell: bash
+        run: terraform plan -no-color -input=false -out=tfplan 2>&1 | tee plan.txt
         env:
           TF_VAR_org_name: ${{ vars.TF_VAR_ORG_NAME }}
           TF_VAR_api_token: ${{ secrets.TF_VAR_API_TOKEN }}
         continue-on-error: true
 
-      # The plan goes in through env, not ${{ }} inside the script: plan text can contain
-      # `${...}` (e.g. user_name_template = "${source.login}"), which a JS template
-      # literal would evaluate. That crashed this step once and is a script-injection hole.
+      - name: Destroy guard
+        id: guard
+        if: steps.plan.outcome == 'success'
+        run: .github/scripts/destroy-guard.sh tfplan guard.md
+        env:
+          ALLOW_DESTROY: ${{ contains(github.event.pull_request.labels.*.name, 'allow-destroy') }}
+        continue-on-error: true
+
+      # The plan is read from plan.txt, never put into the script through ${{ }}: plan text
+      # can contain `${...}` (e.g. user_name_template = "${source.login}"), which a JS
+      # template literal would evaluate. That crashed this step once and is a script-injection hole.
+      # One comment per PR, found by its marker and updated in place.
       - name: Post plan comment
         uses: actions/github-script@v7
-        env:
-          PLAN: ${{ steps.plan.outputs.stdout }}
         with:
           script: |
+            const fs = require('fs');
+            const read = (f) => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8').trim() : '');
+            const marker = '<!-- okta-gitops:plan -->';
+            const max = 60000; // GitHub caps a comment at 65536 characters
+            let plan = read('plan.txt');
+            if (plan.length > max) plan = plan.slice(0, max) + '\n… truncated, the full plan is in the job log';
             const body = [
+              marker,
               `#### Fmt 🖌 \`${{ steps.fmt.outcome }}\``,
               `#### Init ⚙️ \`${{ steps.init.outcome }}\``,
               `#### Validate 🤖 \`${{ steps.validate.outcome }}\``,
               `#### TFLint 🔍 \`${{ steps.tflint.outcome }}\``,
               `#### Test 🧪 \`${{ steps.test.outcome }}\``,
               `#### Plan 📖 \`${{ steps.plan.outcome }}\``,
-              `<details><summary>Show Plan</summary>\n\n\`\`\`\n${process.env.PLAN}\n\`\`\`\n</details>`,
+              read('guard.md') || `#### Destroy guard 🛡️ \`${{ steps.guard.outcome }}\``,
+              `<details><summary>Show Plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n</details>`,
               `*triggered by @${{ github.actor }}*`,
             ].join('\n\n');
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body,
-            });
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const mine = comments.find((c) => c.user.type === 'Bot' && c.body.startsWith(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
 
       - name: Fail if any check failed
-        if: steps.fmt.outcome == 'failure' || steps.tflint.outcome == 'failure' || steps.test.outcome == 'failure' || steps.plan.outcome == 'failure'
+        if: steps.fmt.outcome == 'failure' || steps.tflint.outcome == 'failure' || steps.test.outcome == 'failure' || steps.plan.outcome == 'failure' || steps.guard.outcome == 'failure'
         run: exit 1

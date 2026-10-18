@@ -77,11 +77,13 @@ Use the `/okta-drift` skill (`.claude/skills/okta-drift`). It runs these steps:
 
 ## CI traps
 
-- `plan.yml` runs on PRs and posts the plan as a comment. The `plan` check is required. `apply.yml` runs on push to `main`, behind the `prod` environment approval. `drift.yml` is manual only (`workflow_dispatch`, no schedule by the user's choice): read-only plan, fails on drift or error.
+- `plan.yml` runs on PRs and posts the plan as one comment, updated in place on every run. The `plan` check is required. `apply.yml` runs on push to `main`, behind the `prod` environment approval. `drift.yml` is manual only (`workflow_dispatch`, no schedule by the user's choice): read-only plan, fails on drift or error.
 - **`plan.yml` has no `paths:` filter on purpose.** `plan` is a required check; with a filter, a docs-only PR never gets it and stays BLOCKED forever (happened to PR #12). Don't add one back.
 - **`apply.yml`'s `paths:` filter must list every input** (`*.tf`, `config/**`, `backend.hcl`, `modules/**`). A merge touching only unlisted files runs no apply. `apps.yaml` was missing until 2026-08-22. Keep new YAML inputs under `config/` so they're covered.
-- `plan.yml` fails the job if fmt, tflint, module tests or plan fail. Each step uses `continue-on-error` so the PR comment still gets posted, and a final step checks every outcome.
-- **Never put `${{ steps.*.outputs.* }}` inside a script body** (github-script or `run:`). Pass it through `env:`. Plan text contains `${source.login}`, which the JS template literal evaluated, failing `plan` on PR #17.
+- `plan.yml` fails the job if fmt, tflint, module tests, plan or the destroy guard fail. Each step uses `continue-on-error` so the PR comment still gets posted, and a final step checks every outcome.
+- **Destroy guard.** `.github/scripts/destroy-guard.sh` fails `plan` when the plan deletes or replaces any resource, unless the PR has the `allow-destroy` label. Adding or removing a label re-runs the check. A replace usually means a renamed `for_each` key; fix the name rather than reach for the label.
+- **Never put `${{ steps.*.outputs.* }}` inside a script body** (github-script or `run:`). Pass it through `env:` or a file. Plan text contains `${source.login}`, which the JS template literal evaluated, failing `plan` on PR #17.
+- `plan.yml` runs Terraform without the setup-terraform wrapper and passes the plan through files (`plan.txt`, `tfplan`), so it has no `steps.plan.outputs.*`. `drift.yml` still uses the wrapper's outputs.
 - The IAM role trust must include `repo:yuandrk/okta-gitops:ref:refs/heads/main`, `:pull_request` and `:environment:*`.
 
 ## Docs hygiene

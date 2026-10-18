@@ -67,7 +67,9 @@ Group names, rule expressions and app settings are not secrets. Plain YAML makes
 
 ## CI: plan on PR, gated apply on main
 
-- `plan.yml` runs on each PR: fmt → init → validate → tflint → module tests → plan, and posts the plan as a PR comment. Branch protection requires the `plan` check and an up-to-date branch.
+- `plan.yml` runs on each PR: fmt → init → validate → tflint → module tests → plan → destroy guard. It posts the result as one PR comment, which later runs update in place. Branch protection requires the `plan` check and an up-to-date branch.
+- **Destroy guard.** The riskiest diff here looks harmless: a renamed app or group in the YAML is a destroy and recreate, so the app gets a new client ID and secret and the group a new ID. One `-/+` line is easy to miss in a long plan, so `plan.yml` fails whenever the plan deletes or replaces anything. A PR that means to delete adds the `allow-destroy` label, which re-runs the check. The label is the explicit "yes, I meant this"; the `prod` approval stays the last gate.
+- Runs for one PR are serialized (`concurrency`, without cancel-in-progress): a push and a label change would otherwise race for the S3 lock, and a cancelled plan can leave the lock behind.
 - `apply.yml` runs on push to `main`: the `prod` GitHub Environment waits for manual approval, then runs `apply -auto-approve`.
 - `drift.yml` runs only when started by hand (`workflow_dispatch`). It runs a read-only `plan -lock=false -detailed-exitcode` and fails on drift or error. There's no schedule on purpose: the check runs when it's needed, not on a timer. Running it also counts as token use for the 30-day inactivity limit.
 - AWS access uses GitHub OIDC → IAM role `github-okta-gitops` (account `756755582140`). No static keys are stored. The trust policy must allow `ref:refs/heads/main`, `pull_request` and `environment:*`.
