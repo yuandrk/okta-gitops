@@ -10,8 +10,6 @@ authenticators:
     name: Password
   - key: okta_email
     name: Email
-  - key: okta_verify
-    name: Okta Verify
 
 # The default authenticator enrollment policy, per authenticator key:
 # REQUIRED, OPTIONAL or NOT_ALLOWED.
