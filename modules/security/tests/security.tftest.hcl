@@ -36,6 +36,11 @@ run "authenticators_are_keyed_by_key" {
   }
 
   assert {
+    condition     = okta_authenticator.this["google_otp"].name == "Google Authenticator" && !okta_authenticator.this["google_otp"].legacy_ignore_name
+    error_message = "Names must be managed (legacy_ignore_name = false), or a new authenticator is created without one."
+  }
+
+  assert {
     condition     = okta_authenticator.this["okta_verify"].status == "ACTIVE" && okta_authenticator.this["phone_number"].status == "INACTIVE"
     error_message = "status must default to ACTIVE and pass through when set."
   }

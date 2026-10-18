@@ -8,6 +8,10 @@ resource "okta_authenticator" "this" {
   key    = each.key
   name   = each.value.name
   status = each.value.status
+
+  # The provider's legacy default ignores `name`, which also sends an empty name
+  # when it creates an authenticator. Names are managed here.
+  legacy_ignore_name = false
 }
 
 # The default authenticator enrollment policy: which authenticators users must
