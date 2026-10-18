@@ -75,7 +75,8 @@ Group names, rule expressions and app settings are not secrets. Plain YAML makes
 - AWS access uses GitHub OIDC → IAM role `github-okta-gitops` (account `756755582140`). No static keys are stored. The trust policy must allow `ref:refs/heads/main`, `pull_request` and `environment:*`.
 - Secret `TF_VAR_API_TOKEN`. Variables `TF_VAR_ORG_NAME` and `AWS_ROLE_ARN`.
 - `plan.yml` runs on **every** PR, with no `paths:` filter. A required check that a path filter skips never reports, so the PR can't merge. Plan is cheap and read-only, so it always runs.
-- `apply.yml` filters on `paths:`, so docs-only merges don't ask for an approval. **Every file the root reads must be listed there.** `apps.yaml` was missing until 2026-08-22, so apps-only changes skipped CI without any error. The YAML now lives under `config/**`, so a new config file is covered automatically.
+- `apply.yml` filters on `paths:`, so docs-only merges don't ask for an approval. **Every file the root reads must be listed there.** `apps.yaml` was missing until 2026-08-22, so apps-only changes skipped CI without any error. The YAML now lives under `config/**`, so a new config file is covered automatically. `.terraform.lock.hcl` is listed too: it picks the provider build, and Renovate changes it without touching any `.tf` file.
+- **Dependencies: Renovate, actions pinned to SHAs.** These workflows hold an Okta super-admin token, and a tag like `@v4` can be moved to different code. A commit SHA can't, so Renovate pins every action to one and keeps the version in a comment. Renovate rather than Dependabot because a Dependabot PR gets no Actions secrets: the required `plan` would fail, unless the Okta token were copied into a third place. Renovate's PRs come from branches in this repo and get a normal plan.
 
 ---
 

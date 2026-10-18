@@ -5,6 +5,7 @@ Why a thing is the way it is lives in [docs/design.md](docs/design.md), not here
 
 ## 2026-10
 
+- Renovate config: GitHub Actions pinned to commit SHAs, okta provider updates inside `~> 7.0`, monthly lock-file maintenance; `apply.yml` now also runs when `.terraform.lock.hcl` changes. [#22](https://github.com/yuandrk/okta-gitops/pull/22)
 - Destroy guard: a plan that deletes or replaces anything fails the `plan` check unless the PR has the `allow-destroy` label. The plan comment is now one comment, updated on each run. [#21](https://github.com/yuandrk/okta-gitops/pull/21)
 - README rework: highlights, access and delivery diagrams, inventory split into managed vs left out on purpose; add the MIT `LICENSE` file. [#20](https://github.com/yuandrk/okta-gitops/pull/20)
 - Add `inventory` output (group → rule → apps/bookmarks), Kite `groups` claim regex `IT` → `^IT$` (same match, now explicit), more validation tests, readability pass. [#19](https://github.com/yuandrk/okta-gitops/pull/19)
