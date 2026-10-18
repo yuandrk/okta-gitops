@@ -15,5 +15,4 @@ authenticators:
 # REQUIRED, OPTIONAL or NOT_ALLOWED.
 enrollment:
   okta_password: REQUIRED
-  okta_email: OPTIONAL
-  okta_verify: OPTIONAL
+  okta_email: NOT_ALLOWED # Email is allowed for recovery only (its authenticator settings)
