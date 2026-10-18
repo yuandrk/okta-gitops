@@ -152,15 +152,34 @@ The usual way is an import block, so the import is reviewed in the PR and CI app
 
 From a laptop, the CLI does the same: `terraform import '<address>' <id>`, then `terraform plan` until that resource shows no changes.
 
-### Change an authenticator or the enrollment policy
+### Change an authenticator, an enrollment or a session policy
 
 Edit `config/security.yaml`:
 
 - `authenticators[].status` turns one on or off. `INACTIVE` fails while any policy still uses it.
 - `enrollment` sets `REQUIRED`, `OPTIONAL` or `NOT_ALLOWED` per authenticator key on the default enrollment policy. An authenticator has to be active before anything but `NOT_ALLOWED` is accepted.
+- `session` sets the global session policy for everyone: idle and maximum minutes, and whether the cookie survives closing the browser. `break_glass` sets the break-glass admin's own factor and session.
 - Removing an authenticator from the list **deactivates** it (Okta can't delete one), so the destroy guard blocks the PR. Everyone enrolled in it loses that factor. Usually you want `status: INACTIVE`, or nothing at all.
 
-Before applying a change that tightens sign-in, keep an admin session open in another browser, and check that the break-glass admin can still get in.
+A factor that one app needs goes on that app instead: `signon_policy.possession` in `config/apps.yaml`.
+
+Anything that tightens sign-in follows the same protocol:
+
+1. Keep an admin session open in another browser while the apply runs.
+2. After the apply, sign in to an app in a private window.
+3. Check that the [break-glass admin](#set-up-and-test-the-break-glass-admin) still gets in.
+
+### Set up and test the break-glass admin
+
+The break-glass admin is a second super admin that doesn't depend on your phone. Its policies come first in `config/security.yaml`, and its credentials live in 1Password.
+
+1. Admin Console → Directory → People → Add Person, with a mailbox you control. Set a long random password and save both in a 1Password item.
+2. Security → Administrators → Add administrator: the new user, Super Administrator.
+3. Directory → Groups → `break-glass` → Assign people: the new user. Nobody else belongs in this group.
+4. In a private window, sign in as the new user and enroll the factor named in `break_glass.factor`. Keep its secret in the same 1Password item. No factor is set yet ([why](design.md#security-baseline-adopt-first-then-tighten)), so for now the account has only a password, and the Admin Console's own sign-on policy may not let it in.
+5. Open the Admin Console as that user, then sign out.
+
+Test it every quarter, the same way as step 5. A break-glass account that has quietly stopped working is worse than none, because you find out during an incident.
 
 ### Review a Renovate PR
 
@@ -229,3 +248,11 @@ terraform plan   # see how far live Okta has moved from the restored state
 
 1. **Stopgap:** Admin Console → Directory → Groups → Rules → deactivate the rule. The next apply turns it back on.
 2. **Proper fix:** remove the `rule:` line from `config/groups.yaml` (keeps the group), or remove the whole entry. Then open a PR and apply.
+
+### Locked out of your own account
+
+Your phone with Okta Verify is gone, or a policy change shut you out:
+
+1. Sign in as the break-glass admin, with the password and one-time code from its 1Password item.
+2. Fix the cause. For a lost phone: Directory → People → you → Reset Authenticators, then enroll again. For a bad policy: revert the PR. CI's token doesn't need a Console session, so the revert applies like any other change.
+3. Sign out of the break-glass account, and check that your own account works.

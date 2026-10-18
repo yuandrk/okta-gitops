@@ -90,10 +90,11 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | --- | --- |
 | Group `Andriuk corp` | Rule `user.division == "IT"`. Opens nothing since Hermes was retired; the base group for future apps |
 | Group `IT` | Rule `user.division == "IT"`. Gates Kite |
-| Group `break-glass` | No rule: membership is set by hand. Reserved for the break-glass admin |
-| OIDC app `Kite` | Web, `client_secret_post`, 2FA with 12h re-auth, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
+| Group `break-glass` | No rule: membership is set by hand. Holds only the [break-glass admin](docs/runbook.md#set-up-and-test-the-break-glass-admin) |
+| OIDC app `Kite` | Web, `client_secret_post`, password + a device-bound factor (Okta Verify, never SMS or email), 12h re-auth, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
 | Authenticators `Password`, `Email` | Active. Email is allowed for recovery only. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
 | Default enrollment policy | Password `REQUIRED`, Email `NOT_ALLOWED` |
+| Session policies `Break-glass`, `Everyone` | Ahead of Okta's Default Policy. Break-glass: 15 min idle, 60 min max. Everyone: 2 h idle, 12 h max, no persistent cookie. MFA is left to each app's policy |
 
 **Left out on purpose**, so not drift:
 
@@ -101,6 +102,8 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | --- | --- | --- |
 | OIDC app `okta-mcp-browser` | Admin Console | The okta-mcp-server's own device-code login. An apply that broke it would lock out the tool used to diagnose the breakage. [More](docs/design.md#the-mcps-own-app-stays-out-of-terraform) |
 | Built-in groups, `okta_*` system apps | Okta | Okta adds and removes them on its own |
+| Session policy `Default Policy` | Okta | Built in, and evaluated after the managed session policies as the fallback |
+| The Admin Console's sign-on policy | Admin Console | An apply that broke it could lock every admin out of the Console, so changing it stays a deliberate decision made by hand |
 | Authenticator `Okta Verify` | Admin Console | Active, but the API lists it with ID `okta_verify`, which can't be fetched, so it can't be imported. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
 | **Users** | Admin Console | Never in Terraform. Group rules sort them into groups. [More](docs/design.md#users-live-outside-terraform-groups-and-rules-live-inside-it) |
 

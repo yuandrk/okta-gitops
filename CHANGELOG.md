@@ -5,6 +5,8 @@ Why a thing is the way it is lives in [docs/design.md](docs/design.md), not here
 
 ## 2026-10
 
+- Fix #26's partial apply: Terraform forgets the Google Authenticator the API now answers with 404 (`removed` block) and imports Password and Email again as `okta_authenticator.by_key`. The break-glass enrollment policy waits for a factor. Google Authenticator is left out of the default enrollment policy. [#27](https://github.com/yuandrk/okta-gitops/pull/27)
+- Session policies `Break-glass` and `Everyone` (2 h idle, 12 h max, no persistent cookie); Kite requires a device-bound second factor; authenticator names are managed. The apply was partial: Google Authenticator and the break-glass enrollment policy didn't make it (fixed in #27). [#26](https://github.com/yuandrk/okta-gitops/pull/26)
 - **Breaking:** retire Hermes: delete the `Hermes Dashboard` OIDC app (with its sign-on policy, rule and assignment) and the `Hermes` bookmark tile. `Andriuk corp` stays. Drop the applied import blocks from #24. [#25](https://github.com/yuandrk/okta-gitops/pull/25)
 - Adopt the security baseline as is with import blocks: the Password and Email authenticators and the default enrollment policy (new `modules/security`). Add the `break-glass` group (no rule). [#24](https://github.com/yuandrk/okta-gitops/pull/24)
 - Adopt `Hermes Dashboard` (public native client, PKCE) with an import block; it gets its own 2FA / 12h sign-on policy. `modules/apps` supports public clients. [#23](https://github.com/yuandrk/okta-gitops/pull/23)

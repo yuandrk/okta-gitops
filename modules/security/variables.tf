@@ -42,8 +42,10 @@ variable "enrollment" {
 variable "break_glass" {
   description = "The break-glass admin's own way in: an enrollment policy and a global session policy for its group, both ahead of everyone else's."
   type = object({
-    group  = string # a group from config/groups.yaml
-    factor = string # authenticator key the break-glass admin enrolls at first sign-in
+    group = string # a group from config/groups.yaml
+    # Authenticator key the break-glass admin enrolls at first sign-in. Left out:
+    # no break-glass enrollment policy yet.
+    factor = optional(string)
     # A short session: the account is for emergencies, not for staying signed in.
     session_idle_minutes     = optional(number, 15)
     session_lifetime_minutes = optional(number, 60)
@@ -55,8 +57,8 @@ variable "break_glass" {
   }
 
   validation {
-    condition     = contains([for a in var.authenticators : a.key if a.status == "ACTIVE" && !contains(["okta_password", "okta_email"], a.key)], var.break_glass.factor)
-    error_message = "break_glass.factor must be an ACTIVE authenticator in the list, other than okta_password and okta_email."
+    condition     = var.break_glass.factor == null || contains([for a in var.authenticators : a.key if a.status == "ACTIVE" && !contains(["okta_password", "okta_email"], a.key)], coalesce(var.break_glass.factor, "-"))
+    error_message = "break_glass.factor, when set, must be an ACTIVE authenticator in the list, other than okta_password and okta_email."
   }
 
   validation {
