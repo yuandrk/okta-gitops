@@ -6,7 +6,7 @@
 #
 # Who gets what: `terraform output inventory` (group → rule → apps / bookmarks).
 groups:
-  # Gates the Hermes dashboard tile.
+  # Gates Hermes Dashboard and its tile.
   - name: Andriuk corp
     description: Main users
     rule: 'user.division == "IT"' # division=IT → auto-assigned
@@ -15,4 +15,10 @@ groups:
   - name: IT
     description: Homelab admins (Kite)
     rule: 'user.division == "IT"'
+
+  # The break-glass admin: a second super admin for when the main account or its phone
+  # is lost. No rule on purpose: membership is set by hand in the Console. Security
+  # policies give this group its own path (docs/runbook.md → Break-glass admin).
+  - name: break-glass
+    description: Break-glass admin, membership set by hand
 
