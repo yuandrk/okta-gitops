@@ -19,7 +19,8 @@ authenticators:
 enrollment:
   okta_password: REQUIRED
   okta_email: NOT_ALLOWED # Email is allowed for recovery only (its authenticator settings)
-  google_otp: NOT_ALLOWED # only the break-glass admin enrolls TOTP, through its own policy
+  # google_otp is left out on purpose: only the break-glass policy offers TOTP. Setting
+  # it here sent an update that Okta refused, to avoid a lockout (#26's apply).
 
 # The break-glass admin's way in: its own enrollment and session policies, ahead of
 # everyone else's. The user is created by hand and added to the group
