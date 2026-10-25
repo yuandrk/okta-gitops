@@ -418,7 +418,26 @@ run "saml_app_sends_the_email_to_its_acs_url" {
 
   assert {
     condition     = okta_app_saml.saml["Fleet"].hide_web && okta_app_saml.saml["Fleet"].hide_ios
-    error_message = "A SAML app must have no tile: its login starts at the SP."
+    error_message = "A SAML app must have no tile unless it asks for one."
+  }
+}
+
+run "saml_tile_is_opt_in" {
+  command = plan
+
+  variables {
+    saml_apps = [{
+      name          = "Fleet"
+      sso_url       = "https://fleet.example.com/api/v1/fleet/sso/callback"
+      audience      = "https://fleet.example.com"
+      hide_web      = false
+      signon_policy = { name = "p", description = "d" }
+    }]
+  }
+
+  assert {
+    condition     = !okta_app_saml.saml["Fleet"].hide_web && okta_app_saml.saml["Fleet"].hide_ios
+    error_message = "hide_web = false must put the app on the web dashboard, and only there."
   }
 }
 

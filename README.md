@@ -93,8 +93,8 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | Group `Andriuk corp` | Rule `user.division == "IT"`. Opens nothing since Hermes was retired; the base group for future apps |
 | Group `IT` | Rule `user.division == "IT"`. Gates Kite and Fleet |
 | Group `break-glass` | No rule: membership is set by hand. Holds only the [break-glass admin](docs/runbook.md#set-up-and-test-the-break-glass-admin) |
-| OIDC app `Kite` | Web, `client_secret_post`, password + a device-bound factor (Okta Verify, never SMS or email), 12h re-auth, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
-| SAML app `Fleet` | `fleet.yuandrk.net`. Password + a device-bound factor, 12h re-auth, no tile: the login starts at Fleet. NameID = email, and Fleet signs in its existing user with that email. No secret: Fleet reads the metadata from `terraform output saml_metadata_urls`. [Fleet's side](docs/runbook.md#sign-in-to-fleet-with-okta) |
+| OIDC app `Kite` | Web, `client_secret_post`, password + a device-bound factor (Okta Verify, never SMS or email), 12h re-auth, `groups` claim (regex `^IT$`). Dashboard tile: Okta sends you to Kite, which starts the sign-in. Secret in 1Password `kite-credentials` |
+| SAML app `Fleet` | `fleet.yuandrk.net`. Password + a device-bound factor, 12h re-auth. Dashboard tile, which is an IdP-initiated login: Fleet accepts it [on purpose](docs/design.md#fleet-signs-in-with-saml). NameID = email, and Fleet signs in its existing user with that email. No secret: Fleet reads the metadata from `terraform output saml_metadata_urls`. [Fleet's side](docs/runbook.md#sign-in-to-fleet-with-okta) |
 | Authenticators `Password`, `Email` | Active. Email is allowed for recovery only. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
 | Default enrollment policy | Password `REQUIRED`, Email `NOT_ALLOWED` |
 | Session policies `Break-glass`, `Everyone` | Ahead of Okta's Default Policy. Break-glass: 15 min idle, 60 min max. Everyone: 2 h idle, 12 h max, no persistent cookie. MFA is left to each app's policy |

@@ -27,10 +27,10 @@ resource "okta_app_saml" "saml" {
   authn_context_class_ref = "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport"
   idp_issuer              = "http://www.okta.com/$${org.externalKey}"
 
-  # SP-initiated only. A dashboard tile would start an IdP-initiated login: a response
-  # the SP never asked for, so it can't tie it to a sign-in of its own.
+  # A dashboard tile starts an IdP-initiated login: a response the SP never asked for,
+  # so it can't tie it to a sign-in of its own. Only where the app asks for one.
   hide_ios = true
-  hide_web = true
+  hide_web = each.value.hide_web
 
   # Bind the app to its dedicated sign-on (authentication) policy.
   authentication_policy = okta_app_signon_policy.saml[each.key].id

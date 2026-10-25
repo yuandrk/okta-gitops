@@ -123,9 +123,9 @@ variable "apps" {
 }
 
 # SAML 2.0 apps, for service providers that don't speak OIDC (Fleet). The module fixes
-# what SPs generally expect: NameID = the user's email, signed response and assertion,
-# SP-initiated login only. No secret: the SP checks Okta's signature with the
-# certificate in the public metadata (output saml_metadata_urls).
+# what SPs generally expect: NameID = the user's email, signed response and assertion.
+# No secret: the SP checks Okta's signature with the certificate in the public metadata
+# (output saml_metadata_urls).
 variable "saml_apps" {
   description = "List of SAML 2.0 app integrations to manage. Each app gets an okta_app_saml, a dedicated sign-on policy + rule, and group assignments."
   type = list(object({
@@ -135,6 +135,9 @@ variable "saml_apps" {
     # The SP's entity ID. It must match the SP's own setting exactly.
     audience = string
     groups   = optional(list(string), [])
+    # A dashboard tile (hide_web = false) is an IdP-initiated login: Okta posts a response
+    # the SP never asked for, and the SP has to be set to accept it. Hidden by default.
+    hide_web = optional(bool, true)
     # Same shape and defaults as apps[*].signon_policy.
     signon_policy = object({
       name                        = string
