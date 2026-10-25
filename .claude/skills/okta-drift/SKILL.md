@@ -31,7 +31,7 @@ unmanaged**, **drift**. This is a read-only diagnostic — it makes no Okta or s
 Compare against the YAML the Terraform root decodes (read the **current branch**, or `git show origin/main:config/groups.yaml` for the deployed truth):
 
 - `config/groups.yaml` → `okta_group` + `okta_group_rule` (managed group names)
-- `config/apps.yaml` → `okta_app_oauth` + signon policy/rule + group assignment (managed app labels)
+- `config/apps.yaml` → `apps`: `okta_app_oauth`, `saml_apps`: `okta_app_saml`, each with a signon policy/rule + group assignment (managed app labels)
 - `config/security.yaml` → `okta_authenticator` (managed authenticator keys) + `okta_policy_mfa_default` (the default enrollment policy) + the `Break-glass` and `Everyone` global session policies (and a `Break-glass` enrollment policy once `break_glass.factor` is set). Google Authenticator `aut18ur2y4sw3mjUr698` answers 404 and is unmanaged, not drift. Check these with `terraform plan`, not the inventory diff. Okta's Default global session policy and the Admin Console's sign-on policy are unmanaged on purpose. The Okta Verify authenticator is listed with ID `okta_verify` and can't be fetched, so it's unmanaged, not drift (CLAUDE.md → "Deliberately unmanaged").
 
 ### 3. Classify every live resource
@@ -55,8 +55,8 @@ Compare against the YAML the Terraform root decodes (read the **current branch**
 - Deleted, so **drift** if they reappear:
   - 2026-09-26: the abandoned web `Hermes Dashboard` (`0oa16pzv08uDQV7Fy698`) and `AI Harmess` (`0oa16pzy2koEUVYf1698`);
   - 2026-10-18, when Hermes was retired: the native `Hermes Dashboard` (`0oa16q11mp5oL7Brc698`) and the bookmark `Hermes` (`0oa16r0m9psZy4qCf698`).
-- label present in `config/apps.yaml` → **managed** ✅ (currently `Kite` only. Headlamp was deleted 2026-09-26, so an active `Headlamp` app `0oa12umcw8ypCsnsc698` or group `homelab-admins` reappearing is drift)
-- any other `oidc_client` app not in `config/apps.yaml` → **DRIFT** ⚠️
+- label present in `config/apps.yaml` → **managed** ✅ (currently `Kite` (OIDC) and `Fleet` (SAML). Headlamp was deleted 2026-09-26, so an active `Headlamp` app `0oa12umcw8ypCsnsc698` or group `homelab-admins` reappearing is drift)
+- any other `oidc_client` app or SAML app (`signOnMode: SAML_2_0`) not in `config/apps.yaml` → **DRIFT** ⚠️
 
 ### 4. Group rules & state-level cleanliness → `terraform plan`
 
@@ -88,5 +88,5 @@ Emit one compact table — Resource · Type · In TF? · Verdict (✅ managed / 
 Per the repo workflow rule, **never apply automatically**. For each ⚠️ drift item recommend the safe adoption path and let the user decide:
 
 1. Add the resource to `config/groups.yaml` / `config/apps.yaml` (or decide to leave it unmanaged and document why).
-2. `terraform import '<address>' <okta-id>` to adopt the existing object **before** apply — otherwise apply fails creating a duplicate. Addresses look like `module.identity.okta_group.groups["<name>"]` and `module.apps.okta_app_oauth.oidc["<label>"]`.
+2. `terraform import '<address>' <okta-id>` to adopt the existing object **before** apply — otherwise apply fails creating a duplicate. Addresses look like `module.identity.okta_group.groups["<name>"]`, `module.apps.okta_app_oauth.oidc["<label>"]` and `module.apps.okta_app_saml.saml["<label>"]`.
 3. Iterate the code until `terraform plan` is clean for that resource, show the plan, then apply only after the user confirms.

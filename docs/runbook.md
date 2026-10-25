@@ -88,6 +88,54 @@ The app `name` and each `App:Group` pair are `for_each` keys. **Renaming either 
 
 For a public client (a native or browser app that holds no secret, such as a desktop app or a single-page app), set `type: native` or `type: browser`, `token_endpoint_auth_method: none` and `pkce_required: true`. Validation rejects `none` anywhere else. A public client has no entry in `oidc_client_secrets`, and a native one can't have a dashboard tile, so add a bookmark if it needs one. See [design.md](design.md#hermes-retired-2026-10-18).
 
+### Add a SAML app
+
+For a service provider that speaks SAML 2.0 but not OIDC. Add an entry under `saml_apps` in `config/apps.yaml`:
+
+```yaml
+saml_apps:
+  - name: Fleet
+    sso_url: https://fleet.yuandrk.net/api/v1/fleet/sso/callback   # the SP's ACS URL
+    audience: https://fleet.yuandrk.net                            # the SP's entity ID
+    groups: ["IT"]
+    signon_policy:
+      name: "Fleet Sign-On Policy"
+      description: "Managed by Terraform — password + second factor"
+      possession: DEVICE_BOUND
+```
+
+The ACS URL comes from the SP's docs. The entity ID is whatever the SP is configured with, and the two sides must match character for character. The module sets the rest: NameID = the user's email, response and assertion signed with SHA-256, no dashboard tile. The sign-on policy works as it does for OIDC apps.
+
+After the apply, give the SP the metadata URL. There's no secret to hand over:
+
+```bash
+terraform output saml_metadata_urls
+```
+
+It's on the custom domain, so the SP sends people to the domain that holds their Okta session ([why](design.md#fleet-signs-in-with-saml)). As with OIDC apps, the `name` and each `App:Group` pair are `for_each` keys: renaming the app recreates it with a new signing certificate and metadata URL, and the SP has to be pointed at the new one.
+
+### Sign in to Fleet with Okta
+
+Fleet's side, set by hand in Fleet after the apply that created the `Fleet` app. Keep the order: step 1 leaves a way into Fleet if single sign-on breaks.
+
+1. **A break-glass admin first.** Settings → Users → Create user: role Admin, password authentication, an email of its own (plus addressing works). Keep the password in 1Password. If Fleet can send mail (SMTP is set up), turn on email two-factor authentication for it.
+2. Settings → Organization settings: check that **Fleet web address** is `https://fleet.yuandrk.net`. Fleet builds the callback URL in its SAML requests from it.
+3. Settings → Integrations → Authentication (SSO) → **Fleet users**:
+
+   | Field | Value |
+   | --- | --- |
+   | Enable single sign-on | on |
+   | Identity provider name | `Okta`, shown on the login button |
+   | Entity ID | `https://fleet.yuandrk.net`, the same as `audience` in `config/apps.yaml` |
+   | IdP image URL, Metadata | empty |
+   | Metadata URL | from `terraform output saml_metadata_urls`, also printed at the end of the apply log |
+   | Allow SSO login initiated by identity provider | off: the login starts at Fleet |
+
+4. Signed in as the break-glass admin: Settings → Users → your user. Its email must be your primary email in Okta, which is what the NameID carries. Then Actions → Edit → **Enable single sign-on**. From then on, that user can't sign in with a password.
+5. Test in a private window: Fleet → **Sign in with Okta**. The address bar should show `okta.yuandrk.net`. After the password and Okta Verify you're back in Fleet, signed in. Then check that the break-glass admin still gets in with its password.
+
+If Fleet answers that the user doesn't exist, the email in Fleet doesn't match the one Okta sends. Optionally, set `FLEET_SESSION_DURATION=12h` in Fleet's deployment, so Fleet sends you back to Okta as often as the sign-on policy asks for ([why](design.md#fleet-signs-in-with-saml)).
+
 ### Add a dashboard tile (bookmark)
 
 Use this for anything that needs a link on the Okta dashboard but has no OIDC app of its own, or whose OIDC app can't have a tile:

@@ -32,6 +32,17 @@ The Hermes dashboard (`hermes.yuandrk.net`, on the k3s-master host) signed in th
 - **Only native and browser apps are public clients, and they need PKCE.** `modules/apps` accepts `none` only for `native` and `browser` apps, and only with `pkce_required`. A public client has no secret, so PKCE is what ties the code exchange to the client that started the login. A `web` app with `none` would just be a confidential app with its secret thrown away.
 - **A native app can't have a dashboard tile.** Okta gives tiles only to Web/SPA apps with IdP-initiated login. The workaround is `okta_app_bookmark`: a plain link tile that leaves the real app alone.
 
+## Fleet signs in with SAML
+
+Fleet (`fleet.yuandrk.net`, device management for the homelab's hosts) speaks SAML 2.0 and nothing else, so `modules/apps` gained `saml.tf`: an `okta_app_saml` with the same sign-on policy shape as the OIDC apps. Its resources are separate from the OIDC ones, so Kite's state addresses didn't move.
+
+- **The login starts at Fleet.** The app has no dashboard tile, and Fleet's "Allow SSO login initiated by identity provider" stays off. A tile starts an IdP-initiated login: Okta posts a response that Fleet never asked for, so Fleet can't tie it to a sign-in it started. That leaves room for login CSRF and for replaying a captured response while it's still valid. Kite has no tile either.
+- **The NameID is the email, and Fleet creates nobody.** Okta decides who may sign in (the `IT` group). Fleet decides who has an account and which role it gets: it signs in the existing user with that email. Creating users from SAML attributes (JIT) is a Fleet Premium feature, and one person doesn't need it.
+- **Nothing to store.** Okta signs the response and the assertion with the app's key, and Fleet checks both against the certificate in Okta's public metadata. There's no client secret, so nothing goes into 1Password.
+- **The metadata comes from the custom domain.** The provider's `metadata_url` is the API path `/api/v1/apps/{id}/sso/saml/metadata`, which answers 403 without an API token. The public path is `/app/<entity key>/sso/saml/metadata`. Served from the custom domain, its sign-in endpoints point there too. Served from `integrator-7752059.okta.com`, it sends people to a domain where they have no session, so they sign in twice ([Okta](https://support.okta.com/help/s/article/saml-reauthentication-prompts-after-custom-domain-implementation-in-okta)). The root reads the custom domain from `okta_org_metadata` (`GET /.well-known/okta-organization`), and `terraform output saml_metadata_urls` is the URL Fleet gets.
+- **Two sessions.** The sign-on policy asks for re-authentication after 12 hours, but Okta only sees a Fleet user when Fleet sends them to sign in. Fleet's own session (`FLEET_SESSION_DURATION`, 5 days by default) decides how often that is.
+- **Fleet keeps its own break-glass admin.** A Fleet user with single sign-on can't use a password any more, so an Okta outage or a broken app would lock them out. A second Fleet admin with a password, kept in 1Password, is the way back in. Fleet's docs recommend the same.
+
 ## The MCP's own app stays out of Terraform
 
 `okta-mcp-server`, used by Claude to read the org, signs in as `okta-mcp-browser`. That's a public client using the device-code flow, acting **as the signed-in admin**.
@@ -66,7 +77,7 @@ An SSWS token acts as the admin who minted it, with whatever roles that admin ha
 
 The layout follows HashiCorp's [standard module structure](https://developer.hashicorp.com/terraform/language/modules/develop/structure) and [terraform-best-practices.com](https://www.terraform-best-practices.com/):
 
-- **One concern per file.** `versions.tf` (Terraform/provider constraints, backend), `providers.tf`, `locals.tf` (YAML decoding), `main.tf` (module calls only). Inside `modules/apps`, OIDC apps and bookmarks live in `oidc.tf` and `bookmarks.tf`.
+- **One concern per file.** `versions.tf` (Terraform/provider constraints, backend), `providers.tf`, `locals.tf` (YAML decoding), `main.tf` (module calls, plus the org metadata that gives them the custom domain). Inside `modules/apps`, OIDC apps, SAML apps and bookmarks live in `oidc.tf`, `saml.tf` and `bookmarks.tf`.
 - **Data apart from code.** Everything you edit day to day is in `config/`. The `.tf` files change only when the *shape* of what's managed changes.
 - **Version constraints:** the root pins `okta ~> 7.0` and commits `.terraform.lock.hcl` (with linux_amd64 + darwin_arm64 hashes, via `terraform providers lock`); modules only declare a floor (`>= 6.0`), so they don't block a provider upgrade. The 6.10 → 7.0 bump (2026-09-26) was plan → No changes: 7.0's breaking changes hit resources this repo doesn't use.
 - **Fail at plan time, with a readable message.** Variable validation rejects unknown group names, bad enum values and duplicate keys before Okta sees anything. Before this, a typo in a group name produced a bare "Invalid index".
@@ -134,4 +145,5 @@ Group names, rule expressions and app settings are not secrets. Plain YAML makes
 - **Tokens expire from inactivity.** An SSWS token that isn't used for 30 days dies. A quiet repo comes back with a 401. Keep the token in a password manager and update CI in the same step.
 - **When state points at something the API can't read, let go of it in a PR.** Every plan fails while refreshing a resource that answers 404. A `removed` block with `destroy = false` drops it from state without refreshing it, so the fix goes through the normal review and apply, with no state surgery on a laptop. Terraform 1.10 can't name one `for_each` instance there: forget the whole resource, rename it, and import the healthy instances again.
 - **Keep the auth paths separate.** The IaC token and the admin tooling's login are separate credentials, and one working says nothing about the other.
+- **A custom domain is part of every app's setup.** An OIDC app needs `issuer_mode: CUSTOM_URL`; a SAML service provider needs the metadata from the custom domain. Miss it and sign-in still works, but people sign in twice, once per domain.
 - **A Terraform identity needs every role its resources need.** Here that's Super Admin, because only Super Admin edits enrollment policies. At work, split the roots by role instead: apps and their sign-on policies under an App Admin token, groups and rules under Org Admin, and only the security baseline under Super Admin.

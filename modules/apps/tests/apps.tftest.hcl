@@ -4,6 +4,8 @@
 mock_provider "okta" {}
 
 variables {
+  okta_url = "https://login.example.com"
+
   group_ids = {
     "admins"  = "00gADMINS"
     "viewers" = "00gVIEWERS"
@@ -14,6 +16,14 @@ variables {
     redirect_uris = ["https://grafana.example.com/callback"]
     groups        = ["admins", "viewers"]
     signon_policy = { name = "Grafana Sign-On Policy", description = "test" }
+  }]
+
+  saml_apps = [{
+    name          = "Fleet"
+    sso_url       = "https://fleet.example.com/api/v1/fleet/sso/callback"
+    audience      = "https://fleet.example.com"
+    groups        = ["admins"]
+    signon_policy = { name = "Fleet Sign-On Policy", description = "test" }
   }]
 
   bookmarks = [{
@@ -361,11 +371,162 @@ run "group_access_lists_apps_and_bookmarks_per_group" {
   assert {
     condition = (
       toset(keys(output.group_access)) == toset(["admins", "viewers"]) &&
-      output.group_access["admins"].apps == tolist(["Grafana"]) &&
+      output.group_access["admins"].apps == tolist(["Fleet", "Grafana"]) &&
       length(output.group_access["admins"].bookmarks) == 0 &&
       output.group_access["viewers"].apps == tolist(["Grafana"]) &&
       output.group_access["viewers"].bookmarks == tolist(["Wiki"])
     )
-    error_message = "group_access must map each assigned group to its apps and bookmarks."
+    error_message = "group_access must map each assigned group to its apps (OIDC and SAML) and bookmarks."
+  }
+}
+
+run "saml_app_gets_policy_and_one_assignment_per_group" {
+  command = plan
+
+  assert {
+    condition     = keys(okta_app_saml.saml) == ["Fleet"] && keys(okta_app_signon_policy.saml) == ["Fleet"] && keys(okta_app_signon_policy_rule.saml) == ["Fleet"]
+    error_message = "Each SAML app needs its own sign-on policy and rule, keyed by name."
+  }
+
+  assert {
+    condition     = keys(okta_app_group_assignment.saml) == ["Fleet:admins"] && okta_app_group_assignment.saml["Fleet:admins"].group_id == "00gADMINS"
+    error_message = "SAML assignments must be keyed \"App:Group\" and resolve groups through var.group_ids."
+  }
+}
+
+run "saml_app_sends_the_email_to_its_acs_url" {
+  command = plan
+
+  assert {
+    condition = (
+      okta_app_saml.saml["Fleet"].recipient == "https://fleet.example.com/api/v1/fleet/sso/callback" &&
+      okta_app_saml.saml["Fleet"].destination == "https://fleet.example.com/api/v1/fleet/sso/callback" &&
+      okta_app_saml.saml["Fleet"].audience == "https://fleet.example.com"
+    )
+    error_message = "Recipient and Destination must be the ACS URL, and the audience the SP's entity ID."
+  }
+
+  assert {
+    condition     = okta_app_saml.saml["Fleet"].subject_name_id_format == "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress" && okta_app_saml.saml["Fleet"].user_name_template == "$${source.email}"
+    error_message = "The NameID must be the user's email."
+  }
+
+  assert {
+    condition     = okta_app_saml.saml["Fleet"].response_signed && okta_app_saml.saml["Fleet"].assertion_signed
+    error_message = "Okta must sign both the response and the assertion."
+  }
+
+  assert {
+    condition     = okta_app_saml.saml["Fleet"].hide_web && okta_app_saml.saml["Fleet"].hide_ios
+    error_message = "A SAML app must have no tile: its login starts at the SP."
+  }
+}
+
+run "saml_signon_rule_defaults_to_mfa" {
+  command = plan
+
+  assert {
+    condition     = okta_app_signon_policy_rule.saml["Fleet"].factor_mode == "2FA" && okta_app_signon_policy_rule.saml["Fleet"].re_authentication_frequency == "PT12H" && okta_app_signon_policy_rule.saml["Fleet"].constraints == null
+    error_message = "A SAML app that doesn't set factor_mode must get 2FA with a 12h re-auth and no factor constraint."
+  }
+}
+
+run "saml_device_bound_possession_becomes_a_constraint" {
+  command = plan
+
+  variables {
+    saml_apps = [{
+      name          = "Fleet"
+      sso_url       = "https://fleet.example.com/api/v1/fleet/sso/callback"
+      audience      = "https://fleet.example.com"
+      signon_policy = { name = "p", description = "d", possession = "DEVICE_BOUND" }
+    }]
+  }
+
+  assert {
+    condition = jsondecode(okta_app_signon_policy_rule.saml["Fleet"].constraints[0]) == {
+      knowledge  = { required = true, types = ["password"] }
+      possession = { required = true, deviceBound = "REQUIRED" }
+    }
+    error_message = "DEVICE_BOUND must become password + a required device-bound possession factor, for SAML apps too."
+  }
+}
+
+run "plain_http_acs_url_is_rejected" {
+  command = plan
+
+  variables {
+    saml_apps = [{
+      name          = "Fleet"
+      sso_url       = "http://fleet.example.com/api/v1/fleet/sso/callback"
+      audience      = "https://fleet.example.com"
+      signon_policy = { name = "p", description = "d" }
+    }]
+  }
+
+  expect_failures = [var.saml_apps]
+}
+
+run "saml_app_named_like_an_oidc_app_is_rejected" {
+  command = plan
+
+  variables {
+    saml_apps = [{
+      name          = "Grafana"
+      sso_url       = "https://grafana.example.com/saml/acs"
+      audience      = "https://grafana.example.com"
+      signon_policy = { name = "p", description = "d" }
+    }]
+  }
+
+  expect_failures = [var.saml_apps]
+}
+
+run "duplicate_saml_app_names_are_rejected" {
+  command = plan
+
+  variables {
+    saml_apps = [
+      { name = "Fleet", sso_url = "https://a.example.com/acs", audience = "a", signon_policy = { name = "p", description = "d" } },
+      { name = "Fleet", sso_url = "https://b.example.com/acs", audience = "b", signon_policy = { name = "q", description = "d" } },
+    ]
+  }
+
+  expect_failures = [var.saml_apps]
+}
+
+run "saml_app_with_unknown_group_is_rejected" {
+  command = plan
+
+  variables {
+    saml_apps = [{
+      name          = "Fleet"
+      sso_url       = "https://fleet.example.com/api/v1/fleet/sso/callback"
+      audience      = "https://fleet.example.com"
+      groups        = ["nobody"]
+      signon_policy = { name = "p", description = "d" }
+    }]
+  }
+
+  expect_failures = [var.saml_apps]
+}
+
+run "okta_url_with_trailing_slash_is_rejected" {
+  command = plan
+
+  variables {
+    okta_url = "https://login.example.com/"
+  }
+
+  expect_failures = [var.okta_url]
+}
+
+# Last, because it applies (against the mock): the entity key is known only after apply.
+run "saml_metadata_url_is_on_okta_url" {
+  command = apply
+
+  assert {
+    condition     = startswith(output.saml_metadata_urls["Fleet"], "https://login.example.com/app/") && endswith(output.saml_metadata_urls["Fleet"], "/sso/saml/metadata")
+    error_message = "The metadata URL must be the public /app/<entity key>/sso/saml/metadata path on okta_url."
   }
 }

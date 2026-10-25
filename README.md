@@ -11,7 +11,7 @@
 
 ## Why this exists
 
-1. **Real SSO for the homelab.** Signing in to Kite (the k3s dashboard) goes through Okta, and the Okta side lives here.
+1. **Real SSO for the homelab.** Signing in to Kite (the k3s dashboard) and Fleet (device management) goes through Okta, and the Okta side lives here.
 2. **A rehearsal for Okta at work.** Import-before-apply, drift checks and MCP-assisted admin get worked out here first, on a developer org where mistakes are cheap.
 3. **Learning and a portfolio.** Each resource is annotated with the Okta API call and Admin Console screen it maps to.
 
@@ -40,7 +40,9 @@ flowchart LR
         G2["group <b>IT</b><br/>rule: division == IT"]
         G1["group <b>Andriuk corp</b><br/>rule: division == IT"]
         K["OIDC app <b>Kite</b><br/>→ kite.yuandrk.net · 2FA"]
+        F["SAML app <b>Fleet</b><br/>→ fleet.yuandrk.net · 2FA"]
         G2 -->|assigned| K
+        G2 -->|assigned| F
     end
 
     U -->|auto-assign| G2
@@ -89,9 +91,10 @@ Org `integrator-7752059.okta.com` (developer org), custom domain `okta.yuandrk.n
 | Resource | Details |
 | --- | --- |
 | Group `Andriuk corp` | Rule `user.division == "IT"`. Opens nothing since Hermes was retired; the base group for future apps |
-| Group `IT` | Rule `user.division == "IT"`. Gates Kite |
+| Group `IT` | Rule `user.division == "IT"`. Gates Kite and Fleet |
 | Group `break-glass` | No rule: membership is set by hand. Holds only the [break-glass admin](docs/runbook.md#set-up-and-test-the-break-glass-admin) |
 | OIDC app `Kite` | Web, `client_secret_post`, password + a device-bound factor (Okta Verify, never SMS or email), 12h re-auth, `groups` claim (regex `^IT$`). Secret in 1Password `kite-credentials` |
+| SAML app `Fleet` | `fleet.yuandrk.net`. Password + a device-bound factor, 12h re-auth, no tile: the login starts at Fleet. NameID = email, and Fleet signs in its existing user with that email. No secret: Fleet reads the metadata from `terraform output saml_metadata_urls`. [Fleet's side](docs/runbook.md#sign-in-to-fleet-with-okta) |
 | Authenticators `Password`, `Email` | Active. Email is allowed for recovery only. [More](docs/design.md#security-baseline-adopt-first-then-tighten) |
 | Default enrollment policy | Password `REQUIRED`, Email `NOT_ALLOWED` |
 | Session policies `Break-glass`, `Everyone` | Ahead of Okta's Default Policy. Break-glass: 15 min idle, 60 min max. Everyone: 2 h idle, 12 h max, no persistent cookie. MFA is left to each app's policy |
@@ -127,7 +130,7 @@ terraform output inventory                     # who gets what, from state
 
 ## Making a change
 
-1. Edit [`config/groups.yaml`](config/groups.yaml) or [`config/apps.yaml`](config/apps.yaml). The runbook has recipes for a [group or rule](docs/runbook.md#add-a-group-or-change-a-rule), an [OIDC app](docs/runbook.md#add-an-oidc-app) and a [dashboard tile](docs/runbook.md#add-a-dashboard-tile-bookmark).
+1. Edit [`config/groups.yaml`](config/groups.yaml) or [`config/apps.yaml`](config/apps.yaml). The runbook has recipes for a [group or rule](docs/runbook.md#add-a-group-or-change-a-rule), an [OIDC app](docs/runbook.md#add-an-oidc-app), a [SAML app](docs/runbook.md#add-a-saml-app) and a [dashboard tile](docs/runbook.md#add-a-dashboard-tile-bookmark).
 2. Add a dated line to [CHANGELOG.md](CHANGELOG.md).
 3. Open a PR and read the plan comment. Any failed step fails the required `plan` check.
 4. Merge, then approve the apply in the `prod` environment.
@@ -143,17 +146,17 @@ Something that already exists in Okta gets [imported before the apply](docs/runb
 okta-gitops/
 ├── config/                     # day-to-day edits
 │   ├── groups.yaml             #   groups + the rules that fill them
-│   ├── apps.yaml               #   OIDC apps + bookmark tiles
+│   ├── apps.yaml               #   OIDC and SAML apps + bookmark tiles
 │   └── security.yaml           #   authenticators + the default enrollment policy
-├── main.tf                     # module calls only
+├── main.tf                     # module calls (+ the org's custom domain)
 ├── locals.tf                   # decodes config/*.yaml
-├── outputs.tf                  # inventory, OIDC client IDs and secrets
+├── outputs.tf                  # inventory, OIDC client IDs and secrets, SAML metadata URLs
 ├── imports.tf                  # one-time import blocks for objects made in the Console
 ├── versions.tf · providers.tf · variables.tf
 ├── backend.hcl                 # S3 state, native locking
 ├── modules/                    # each with a README and tests/ (mock provider)
 │   ├── identity/               #   okta_group, okta_group_rule
-│   ├── apps/                   #   okta_app_oauth + policy, okta_app_bookmark, assignments
+│   ├── apps/                   #   okta_app_oauth / okta_app_saml + policy, okta_app_bookmark, assignments
 │   └── security/               #   okta_authenticator, okta_policy_mfa_default
 ├── .github/workflows/          # plan (PR) · apply (main, gated) · drift (manual)
 ├── .github/scripts/            # destroy-guard.sh, run by plan

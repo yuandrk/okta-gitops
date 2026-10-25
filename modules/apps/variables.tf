@@ -122,6 +122,74 @@ variable "apps" {
   }
 }
 
+# SAML 2.0 apps, for service providers that don't speak OIDC (Fleet). The module fixes
+# what SPs generally expect: NameID = the user's email, signed response and assertion,
+# SP-initiated login only. No secret: the SP checks Okta's signature with the
+# certificate in the public metadata (output saml_metadata_urls).
+variable "saml_apps" {
+  description = "List of SAML 2.0 app integrations to manage. Each app gets an okta_app_saml, a dedicated sign-on policy + rule, and group assignments."
+  type = list(object({
+    name = string
+    # The SP's Assertion Consumer Service URL, where Okta posts the signed response.
+    sso_url = string
+    # The SP's entity ID. It must match the SP's own setting exactly.
+    audience = string
+    groups   = optional(list(string), [])
+    # Same shape and defaults as apps[*].signon_policy.
+    signon_policy = object({
+      name                        = string
+      description                 = string
+      rule_name                   = optional(string, "Require MFA")
+      factor_mode                 = optional(string, "2FA")
+      re_authentication_frequency = optional(string, "PT12H")
+      possession                  = optional(string)
+    })
+  }))
+  default = []
+
+  validation {
+    condition     = length(distinct([for a in var.saml_apps : a.name])) == length(var.saml_apps)
+    error_message = "SAML app names must be unique — the name is the for_each key (state address)."
+  }
+
+  validation {
+    condition     = length(setintersection([for a in var.saml_apps : a.name], [for a in var.apps : a.name])) == 0
+    error_message = "A SAML app can't share its name with an OIDC app: the inventory lists both kinds of app together."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.saml_apps : startswith(a.sso_url, "https://")])
+    error_message = "saml_apps[*].sso_url must start with https://."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.saml_apps : contains(["1FA", "2FA"], a.signon_policy.factor_mode)])
+    error_message = "signon_policy.factor_mode must be one of: 1FA, 2FA."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.saml_apps : can(regex("^PT[0-9]+[HM]$", a.signon_policy.re_authentication_frequency))])
+    error_message = "signon_policy.re_authentication_frequency must be an ISO-8601 duration in hours or minutes, e.g. PT12H or PT30M."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.saml_apps : a.signon_policy.possession == null || contains(["DEVICE_BOUND", "PHISHING_RESISTANT"], coalesce(a.signon_policy.possession, "-"))])
+    error_message = "signon_policy.possession must be DEVICE_BOUND or PHISHING_RESISTANT, or left out."
+  }
+
+  validation {
+    condition     = alltrue([for a in var.saml_apps : a.signon_policy.possession == null || a.signon_policy.factor_mode == "2FA"])
+    error_message = "signon_policy.possession needs factor_mode 2FA: it constrains the second factor."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for a in var.saml_apps : [for g in a.groups : contains(keys(var.group_ids), g)]
+    ]))
+    error_message = "Every group in saml_apps[*].groups must be a group defined in config/groups.yaml. Unknown: ${join(", ", distinct(flatten([for a in var.saml_apps : [for g in a.groups : "${a.name} → ${g}" if !contains(keys(var.group_ids), g)]])))}."
+  }
+}
+
 # Bookmark apps are plain dashboard tiles — a label and a URL, no OIDC, no secrets.
 # Used when an app can't get a tile of its own: Okta only offers IdP-initiated login
 # (and therefore a tile) to Web/SPA OIDC apps, so a `native` public client is invisible
@@ -157,4 +225,14 @@ variable "bookmarks" {
 variable "group_ids" {
   description = "Map of group name to Okta group ID (from the identity module) — used to resolve group assignments by name."
   type        = map(string)
+}
+
+variable "okta_url" {
+  description = "Base URL that SAML SPs read Okta's metadata from: the org's custom domain if it has one (e.g. https://okta.yuandrk.net), so the SP sends users to the domain that holds their session."
+  type        = string
+
+  validation {
+    condition     = startswith(var.okta_url, "https://") && !endswith(var.okta_url, "/")
+    error_message = "okta_url must start with https:// and have no trailing slash."
+  }
 }
