@@ -104,7 +104,7 @@ saml_apps:
       possession: DEVICE_BOUND
 ```
 
-The ACS URL comes from the SP's docs. The entity ID is whatever the SP is configured with, and the two sides must match character for character. The module sets the rest: NameID = the user's email, response and assertion signed with SHA-256, no dashboard tile. The sign-on policy works as it does for OIDC apps.
+The ACS URL comes from the SP's docs. The entity ID is whatever the SP is configured with, and the two sides must match character for character. The module sets the rest: NameID = the user's email, response and assertion signed with SHA-256. There's no dashboard tile unless the entry sets `hide_web: false`, and then the SP has to accept IdP-initiated logins ([why](design.md#fleet-signs-in-with-saml)). The sign-on policy works as it does for OIDC apps.
 
 After the apply, give the SP the metadata URL. There's no secret to hand over:
 
@@ -129,12 +129,12 @@ Fleet's side, set by hand in Fleet after the apply that created the `Fleet` app.
    | Entity ID | `https://fleet.yuandrk.net`, the same as `audience` in `config/apps.yaml` |
    | IdP image URL, Metadata | empty |
    | Metadata URL | from `terraform output saml_metadata_urls`, also printed at the end of the apply log |
-   | Allow SSO login initiated by identity provider | off: the login starts at Fleet |
+   | Allow SSO login initiated by identity provider | on: the Fleet tile on the Okta dashboard is an IdP-initiated login |
 
 4. Signed in as the break-glass admin: Settings → Users → your user. Its email must be your primary email in Okta, which is what the NameID carries. Then Actions → Edit → **Enable single sign-on**. From then on, that user can't sign in with a password.
-5. Test in a private window: Fleet → **Sign in with Okta**. The address bar should show `okta.yuandrk.net`. After the password and Okta Verify you're back in Fleet, signed in. Then check that the break-glass admin still gets in with its password.
+5. Test in a private window: Fleet → **Sign in with Okta**. The address bar should show `okta.yuandrk.net`. After the password and Okta Verify you're back in Fleet, signed in. Then sign in once from the Fleet tile on the Okta dashboard, and check that the break-glass admin still gets in with its password.
 
-If Fleet answers that the user doesn't exist, the email in Fleet doesn't match the one Okta sends. Optionally, set `FLEET_SESSION_DURATION=12h` in Fleet's deployment, so Fleet sends you back to Okta as often as the sign-on policy asks for ([why](design.md#fleet-signs-in-with-saml)).
+If Fleet answers that the user doesn't exist, the email in Fleet doesn't match the one Okta sends. **Single sign-on is not enabled on your account** means step 4 is missing: Okta signed you in and Fleet found the user, but single sign-on is off on it. If **Sign in with Okta** works and only the tile fails, the IdP-initiated setting in step 3 is off. Optionally, set `FLEET_SESSION_DURATION=12h` in Fleet's deployment, so Fleet sends you back to Okta as often as the sign-on policy asks for ([why](design.md#fleet-signs-in-with-saml)).
 
 ### Add a dashboard tile (bookmark)
 

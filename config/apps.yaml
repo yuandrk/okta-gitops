@@ -18,6 +18,13 @@ apps:
     groups_claim:
       value: "^IT$"
     groups: ["IT"]
+    # Dashboard tile. Okta sends you to login_uri and Kite starts an ordinary sign-in
+    # (OIDC third-party-initiated login). Kite has no URL that starts it outright, so
+    # without a Kite session you land on its login page: one click on "Sign in with Okta".
+    hide_web: false
+    login_mode: SPEC
+    login_scopes: ["openid"]
+    login_uri: "https://kite.yuandrk.net"
     signon_policy:
       name: "Kite Sign-On Policy"
       description: "Managed by Terraform — password + second factor"
@@ -26,8 +33,9 @@ apps:
       possession: DEVICE_BOUND
 
 # SAML 2.0 apps, for service providers that don't speak OIDC. The NameID is the user's
-# email, and the login starts at the SP, so there's no tile. Nothing is secret: the SP
-# reads Okta's public metadata (`terraform output saml_metadata_urls`).
+# email. No tile unless `hide_web: false`: a SAML tile is an IdP-initiated login, which
+# the SP must accept (docs/design.md). Nothing is secret: the SP reads Okta's public
+# metadata (`terraform output saml_metadata_urls`).
 saml_apps:
   # Fleet — device management (fleet.yuandrk.net). Fleet speaks SAML only.
   # Access: user.division == "IT" → group IT → Fleet (2FA, 12h re-auth).
@@ -37,6 +45,9 @@ saml_apps:
     sso_url: https://fleet.yuandrk.net/api/v1/fleet/sso/callback
     audience: https://fleet.yuandrk.net # Fleet's "Entity ID": the two must match exactly
     groups: ["IT"]
+    # Dashboard tile, so IdP-initiated: Fleet has "Allow SSO login initiated by identity
+    # provider" on. A trade-off taken on purpose (docs/design.md#fleet-signs-in-with-saml).
+    hide_web: false
     signon_policy:
       name: "Fleet Sign-On Policy"
       description: "Managed by Terraform — password + second factor"
