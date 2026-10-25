@@ -5,6 +5,7 @@ Why a thing is the way it is lives in [docs/design.md](docs/design.md), not here
 
 ## 2026-10
 
+- Fleet signs in through Okta: SAML app `Fleet` for the `IT` group, password + a device-bound factor, login started from Fleet only. `modules/apps` supports SAML apps (`saml_apps`); output `saml_metadata_urls` gives each one's metadata URL on the custom domain. [#29](https://github.com/yuandrk/okta-gitops/pull/29)
 - Terraform runs as its own admin, `svc-terraform` (Super Admin), instead of a token minted by the personal account; runbook for creating it and minting its token. Drop the applied blocks from #27. [#28](https://github.com/yuandrk/okta-gitops/pull/28)
 - Fix #26's partial apply: Terraform forgets the Google Authenticator the API now answers with 404 (`removed` block) and imports Password and Email again as `okta_authenticator.by_key`. The break-glass enrollment policy waits for a factor. Google Authenticator is left out of the default enrollment policy. [#27](https://github.com/yuandrk/okta-gitops/pull/27)
 - Session policies `Break-glass` and `Everyone` (2 h idle, 12 h max, no persistent cookie); Kite requires a device-bound second factor; authenticator names are managed. The apply was partial: Google Authenticator and the break-glass enrollment policy didn't make it (fixed in #27). [#26](https://github.com/yuandrk/okta-gitops/pull/26)

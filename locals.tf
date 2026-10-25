@@ -8,6 +8,7 @@ locals {
 
   groups         = local.groups_config.groups
   apps           = local.apps_config.apps
+  saml_apps      = try(local.apps_config.saml_apps, []) # optional section
   bookmarks      = try(local.apps_config.bookmarks, []) # optional section
   authenticators = local.security_config.authenticators
   enrollment     = try(local.security_config.enrollment, {})

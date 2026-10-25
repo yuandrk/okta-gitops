@@ -18,6 +18,15 @@ locals {
     }
   ]...)
 
+  # SAML apps keyed by name, and their "App:Group" assignment pairs — e.g. "Fleet:IT".
+  saml_apps_by_name = { for a in var.saml_apps : a.name => a }
+
+  saml_app_group_pairs = merge([
+    for a in var.saml_apps : {
+      for g in a.groups : "${a.name}:${g}" => { app = a.name, group = g }
+    }
+  ]...)
+
   # signon_policy.possession → the possession half of an Okta verification-method
   # constraint. `required = true` is what the API returns, so writing it keeps the
   # plan clean after an apply.

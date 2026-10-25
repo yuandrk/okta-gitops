@@ -1,6 +1,7 @@
-# Okta app integrations managed by Terraform. Each entry produces an OIDC app, its
-# sign-on policy + rule (2FA / 12h re-auth by default), and group assignments.
-# Consumed by modules/apps; see docs/runbook.md for an example entry.
+# Okta app integrations managed by Terraform: OIDC apps (`apps`), SAML apps (`saml_apps`)
+# and dashboard tiles (`bookmarks`). Each app gets its own sign-on policy + rule (2FA /
+# 12h re-auth by default) and group assignments. Consumed by modules/apps; see
+# docs/runbook.md for example entries.
 #
 # Retired: Headlamp (2026-09-26), Hermes Dashboard and its tile (2026-10-18).
 apps:
@@ -22,6 +23,24 @@ apps:
       description: "Managed by Terraform — password + second factor"
       # The second factor must be device-bound: Okta Verify passes, SMS and email
       # never will. PHISHING_RESISTANT needs FastPass or a passkey (docs/design.md).
+      possession: DEVICE_BOUND
+
+# SAML 2.0 apps, for service providers that don't speak OIDC. The NameID is the user's
+# email, and the login starts at the SP, so there's no tile. Nothing is secret: the SP
+# reads Okta's public metadata (`terraform output saml_metadata_urls`).
+saml_apps:
+  # Fleet — device management (fleet.yuandrk.net). Fleet speaks SAML only.
+  # Access: user.division == "IT" → group IT → Fleet (2FA, 12h re-auth).
+  # Fleet signs in the Fleet user whose email equals the NameID and creates nobody
+  # (that's JIT, Fleet Premium). Fleet side: docs/runbook.md#sign-in-to-fleet-with-okta.
+  - name: Fleet
+    sso_url: https://fleet.yuandrk.net/api/v1/fleet/sso/callback
+    audience: https://fleet.yuandrk.net # Fleet's "Entity ID": the two must match exactly
+    groups: ["IT"]
+    signon_policy:
+      name: "Fleet Sign-On Policy"
+      description: "Managed by Terraform — password + second factor"
+      # Fleet runs scripts on every enrolled host: the same device-bound factor as Kite.
       possession: DEVICE_BOUND
 
 # Bookmark apps — dashboard tiles only, no OIDC and no credentials.
